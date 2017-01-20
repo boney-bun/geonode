@@ -96,3 +96,9 @@ slave
 
 # virtual env
 venv
+
+celerybeat-schedule.bak
+celerybeat-schedule.dat
+celerybeat-schedule.dir
+geonode/qgis_layer/
+geonode/qgis_tiles/
