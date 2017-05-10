@@ -144,6 +144,28 @@
       <p>Please use a <strong>modern browser</strong> like Mozilla Firefox, Google Chrome or Safari.</p>
     </div>
 
+    <div class="modal fade" id="upgrade-browser" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+            <h4 class="modal-title" id="myModalLabel">{% trans "Upgrade Your Browser" %}</h4>
+          </div>
+          <div class="modal-body">
+            <div class="row edit-modal">
+              <!--div class="col-sm-3"-->
+              <div class="col-sm-12">
+                <p>You seem to use an old browser.<br />Please consider upgrading to the newer version to fully use the website</p>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal">{% trans "Close" %}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
   <div id="wrap">
     {% block middle %}
     <div class="container">
@@ -284,6 +306,8 @@
     {% endif %}
     <script src="{{ STATIC_URL }}geonode/js/utils/utils.js?v={{ VERSION }}"></script>
     <script src="{{ STATIC_URL }}geonode/js/base/base.js?v={{ VERSION }}"></script>
+    <script src="{{ STATIC_URL }}lib/js/modernizr-custom.js"></script>
+
     {% include 'autocomplete_light/static.html' %}
     <script type="text/javascript" src="{% url 'django.views.i18n.javascript_catalog' %}"></script>
     {% block extra_script %}{% endblock extra_script %}
@@ -303,6 +327,13 @@
                 $('#search').submit();
             }
         });
+
+        //check browser compatibility
+        if (!Modernizr.json || !Modernizr.es5 ) {
+                $('#upgrade-browser').modal('toggle');
+
+        }
+
     </script>
     <script>
         // Workaround to fix the autocomplete box positions
