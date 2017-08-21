@@ -22,7 +22,7 @@ from django.conf.urls import patterns, url
 from django.conf import settings
 from django.views.generic import TemplateView
 
-from geonode.maps.qgis_server_views import MapCreateView, MapDetailView
+from geonode.maps.qgis_server_views import MapCreateView, MapDetailView, MapEmbedView
 
 js_info_dict = {
     'packages': ('geonode.maps',),
@@ -34,10 +34,12 @@ existing_map_view = 'map_view'
 if 'geonode.geoserver' in settings.INSTALLED_APPS:
     new_map_view = 'new_map'
     existing_map_view = 'map_view'
+    map_embed = 'map_embed'
 
 elif 'geonode.qgis_server' in settings.INSTALLED_APPS:
     new_map_view = MapCreateView.as_view()
     existing_map_view = MapDetailView.as_view()
+    map_embed = MapEmbedView.as_view()
 
 urlpatterns = patterns(
     'geonode.maps.views',
@@ -59,7 +61,7 @@ urlpatterns = patterns(
     url(r'^(?P<mapid>[^/]+)/remove$', 'map_remove', name='map_remove'),
     url(r'^(?P<mapid>[^/]+)/metadata$', 'map_metadata', name='map_metadata'),
     url(r'^(?P<mapid>[^/]+)/metadata_advanced$', 'map_metadata_advanced', name='map_metadata_advanced'),
-    url(r'^(?P<mapid>[^/]+)/embed$', 'map_embed', name='map_embed'),
+    url(r'^(?P<mapid>[^/]+)/embed$', map_embed, name='map_embed'),
     url(r'^(?P<mapid>[^/]+)/history$', 'ajax_snapshot_history'),
     url(r'^(?P<mapid>\d+)/thumbnail$', 'map_thumbnail', name='map_thumbnail'),
     url(r'^(?P<mapid>[^/]+)/(?P<snapshot>[A-Za-z0-9_\-]+)/view$', 'map_view'),
