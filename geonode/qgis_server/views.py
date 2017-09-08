@@ -740,3 +740,35 @@ def set_thumbnail(request, layername):
     }
     return HttpResponse(
         json.dumps(retval), content_type="application/json")
+
+
+def download_qlr(request, layername):
+    """Download QLR file for a layer
+
+    :param layername: The layer name in Geonode.
+    :type layername: basestring
+    :return: QLR file
+    """
+
+    layer = get_object_or_404(Layer, name=layername)
+    url = settings.OGC_SERVER['default']['PUBLIC_LOCATION'] + 'ogc/' + layername
+
+    layers = [{
+        'type':'raster',
+        'display':layername,
+        'driver':'wms',
+        'crs':'EPSG:4326',
+        'format':'image/png',
+        'styles':'',
+        'layers':layer.title,
+        'url':url
+        }]
+    json_layers = json.dumps(layers)
+
+    url_server = settings.QGIS_SERVER_URL + '?SERVICE=LAYERDEFINITIONS&LAYERS=' + json_layers
+    request = requests.get(url_server)
+    response = HttpResponse(
+        request.content, content_type="application/xml", status=request.status_code)
+    response['Content-Disposition'] = 'attachment; filename=%s' % layer.title + '.qlr'
+
+    return response
