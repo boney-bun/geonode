@@ -120,8 +120,8 @@ def download_qgs(request, layername):
 
     layer = get_object_or_404(Layer, name=layername)
     ogc_url = reverse('qgis_server:layer-request',
-                                     kwargs={'layername': layername})
-    url = settings.SITEURL + ogc_url.replace("/","",1)
+                      kwargs={'layername': layername})
+    url = settings.SITEURL + ogc_url.replace("/", "", 1)
 
     layers = [{
         'type': 'raster',
@@ -137,7 +137,7 @@ def download_qgs(request, layername):
     json_layers = json.dumps(layers)
 
     url_server = settings.QGIS_SERVER_URL + \
-                 '?SERVICE=PROJECTDEFINITIONS&LAYERS=' + json_layers
+        '?SERVICE=PROJECTDEFINITIONS&LAYERS=' + json_layers
     request = requests.get(url_server)
     response = HttpResponse(
         request.content, content_type="application/xml",
