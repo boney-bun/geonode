@@ -42,6 +42,8 @@ from django.template.response import TemplateResponse
 from django.utils.translation import ugettext as _
 
 from geonode.layers.models import Layer, LayerFile
+from geonode import qgis_server
+from geonode.decorators import on_ogc_backend
 from geonode.qgis_server.forms import QGISLayerStyleUploadForm
 from geonode.qgis_server.helpers import (
     tile_url_format,
@@ -741,7 +743,7 @@ def set_thumbnail(request, layername):
     return HttpResponse(
         json.dumps(retval), content_type="application/json")
 
-
+@on_ogc_backend(qgis_server.BACKEND_PACKAGE)
 def download_qlr(request, layername):
     """Download QLR file for a layer.
 
@@ -754,7 +756,7 @@ def download_qlr(request, layername):
     if 'geonode.qgis_server' in settings.INSTALLED_APPS:
         layer = get_object_or_404(Layer, name=layername)
         ogc_url = reverse('qgis_server:layer-request',
-                      kwargs = {'layername': layername})
+                          kwargs={'layername': layername})
         url = settings.SITEURL + ogc_url.replace("/", "", 1)
 
         layers = [{
