@@ -42,8 +42,6 @@ from django.template.response import TemplateResponse
 from django.utils.translation import ugettext as _
 
 from geonode.layers.models import Layer, LayerFile
-from geonode import qgis_server
-from geonode.decorators import on_ogc_backend
 from geonode.qgis_server.forms import QGISLayerStyleUploadForm
 from geonode.qgis_server.helpers import (
     tile_url_format,
@@ -743,7 +741,7 @@ def set_thumbnail(request, layername):
     return HttpResponse(
         json.dumps(retval), content_type="application/json")
 
-@on_ogc_backend(qgis_server.BACKEND_PACKAGE)
+
 def download_qlr(request, layername):
     """Download QLR file for a layer.
 
@@ -752,33 +750,31 @@ def download_qlr(request, layername):
 
     :return: QLR file.
     """
-    # execute only in qgis_server
-    if 'geonode.qgis_server' in settings.INSTALLED_APPS:
-        layer = get_object_or_404(Layer, name=layername)
-        ogc_url = reverse('qgis_server:layer-request',
-                          kwargs={'layername': layername})
-        url = settings.SITEURL + ogc_url.replace("/", "", 1)
+    layer = get_object_or_404(Layer, name=layername)
+    ogc_url = reverse('qgis_server:layer-request',
+                      kwargs={'layername': layername})
+    url = settings.SITEURL + ogc_url.replace("/", "", 1)
 
-        layers = [{
-            'type': 'raster',
-            'display': layername,
-            'driver': 'wms',
-            'crs': 'EPSG:4326',
-            'format': 'image/png',
-            'styles': '',
-            'layers': layer.title,
-            'url': url
-            }]
-        json_layers = json.dumps(layers)
+    layers = [{
+        'type': 'raster',
+        'display': layername,
+        'driver': 'wms',
+        'crs': 'EPSG:4326',
+        'format': 'image/png',
+        'styles': '',
+        'layers': layer.title,
+        'url': url
+    }]
+    json_layers = json.dumps(layers)
 
-        url_server = settings.QGIS_SERVER_URL + \
-            '?SERVICE=LAYERDEFINITIONS&LAYERS=' + json_layers
-        request = requests.get(url_server)
-        response = HttpResponse(
-                                request.content,
-                                content_type="application/xml",
-                                status=request.status_code)
-        response['Content-Disposition'] = \
-            'attachment; filename=%s' % layer.title + '.qlr'
+    url_server = settings.QGIS_SERVER_URL + \
+        '?SERVICE=LAYERDEFINITIONS&LAYERS=' + json_layers
+    request = requests.get(url_server)
+    response = HttpResponse(
+                            request.content,
+                            content_type="application/xml",
+                            status=request.status_code)
+    response['Content-Disposition'] = \
+        'attachment; filename=%s' % layer.title + '.qlr'
 
-        return response
+    return response
