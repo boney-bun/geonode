@@ -293,9 +293,6 @@
                               {% for link in links_download %}
                               <li><a href="{{ link.url }}" target="_blank">{% trans link.name %}</a></li>
                               {% endfor %}
-                              {% if 'geonode.qgis_server' in INSTALLED_APPS %}
-                                <li><a href="{% url 'qgis_server:download-qlr' layername=resource.name %} " target="_blank">QGIS Layer file</a></li>
-                              {% endif %}
                             </ul>
                         </li>
                     </div>
