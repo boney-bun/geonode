@@ -244,7 +244,7 @@ def qgis_server_post_save(instance, sender, **kwargs):
             kwargs={'layername': instance.name}))
     logger.debug('qlr_download_url: %s' % ogc_qlr_url)
     link_name = 'QGIS Layer file'
-    link_mime = 'QLR'
+    link_mime = 'application/xml'
     Link.objects.update_or_create(
         resource=instance.resourcebase_ptr,
         name=link_name,
