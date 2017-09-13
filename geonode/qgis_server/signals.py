@@ -215,6 +215,26 @@ def qgis_server_post_save(instance, sender, **kwargs):
         )
     )
 
+    # QGS link layer workspace
+    ogc_qgs_url = urljoin(
+        base_url,
+        reverse(
+            'qgis_server:download-qgs',
+            kwargs={'layername': instance.name}))
+    logger.debug('qgs_download_url: %s' % ogc_qgs_url)
+    link_name = 'QGS Layer file'
+    link_mime = 'application/xml'
+    Link.objects.update_or_create(
+        resource=instance.resourcebase_ptr,
+        name=link_name,
+        defaults=dict(
+            extension='qgs',
+            mime=link_mime,
+            url=ogc_qgs_url,
+            link_type='data'
+        )
+    )
+
     if instance.is_vector():
         # WFS link layer workspace
         ogc_wfs_url = urljoin(
@@ -235,6 +255,26 @@ def qgis_server_post_save(instance, sender, **kwargs):
                 link_type=ogc_wfs_link_type
             )
         )
+
+    # QLR link layer workspace
+    ogc_qlr_url = urljoin(
+        base_url,
+        reverse(
+            'qgis_server:download-qlr',
+            kwargs={'layername': instance.name}))
+    logger.debug('qlr_download_url: %s' % ogc_qlr_url)
+    link_name = 'QGIS Layer file'
+    link_mime = 'application/xml'
+    Link.objects.update_or_create(
+        resource=instance.resourcebase_ptr,
+        name=link_name,
+        defaults=dict(
+            extension='qlr',
+            mime=link_mime,
+            url=ogc_qlr_url,
+            link_type='data'
+        )
+    )
 
     # if layer has overwrite attribute, then it probably comes from
     # importlayers management command and needs to be overwritten
