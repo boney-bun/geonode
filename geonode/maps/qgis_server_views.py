@@ -118,7 +118,6 @@ def map_download_qlr(request, mapid):
                            'base.view_resourcebase',
                            _PERMISSION_MSG_VIEW)
 
-
     def perm_filter(layer):
         return request.user.has_perm(
             'base.view_resourcebase',
@@ -138,25 +137,25 @@ def map_download_qlr(request, mapid):
 
     map_layers = []
     for layer in j_layers:
-        layer_title = layer["name"].split(":")[1]
+        layer_name = layer["name"].split(":")[1]
         ogc_url = reverse('qgis_server:layer-request',
-                          kwargs={'layername': layer_title})
+                          kwargs={'layername': layer_name})
         url = settings.SITEURL + ogc_url.replace("/", "", 1)
 
         map_layers.append({
             'type': 'raster',
-            'display': layer_title,
+            'display': layer_name,
             'driver': 'wms',
             'crs': 'EPSG:4326',
             'format': 'image/png',
             'styles': '',
-            'layers': layer_title,
+            'layers': layer_name,
             'url': url
         })
 
     json_layers = json.dumps(map_layers)
     url_server = settings.QGIS_SERVER_URL \
-                 + '?SERVICE=LAYERDEFINITIONS&LAYERS=' + json_layers
+        + '?SERVICE=LAYERDEFINITIONS&LAYERS=' + json_layers
     fwd_request = requests.get(url_server)
     response = HttpResponse(
         fwd_request.content, content_type="application/xml",
@@ -165,4 +164,3 @@ def map_download_qlr(request, mapid):
                                       % map_obj.title + '.qlr'
 
     return response
-
