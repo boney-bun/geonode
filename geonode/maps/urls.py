@@ -22,7 +22,8 @@ from django.conf.urls import patterns, url
 from django.views.generic import TemplateView
 
 from geonode import geoserver, qgis_server
-from geonode.maps.qgis_server_views import MapCreateView, MapDetailView
+from geonode.maps.qgis_server_views import MapCreateView, \
+    MapDetailView, map_download_qlr
 from geonode.utils import check_ogc_backend
 
 js_info_dict = {
@@ -39,8 +40,13 @@ if check_ogc_backend(geoserver.BACKEND_PACKAGE):
 elif check_ogc_backend(qgis_server.BACKEND_PACKAGE):
     new_map_view = MapCreateView.as_view()
     existing_map_view = MapDetailView.as_view()
+    urlpatterns = patterns('geonode.maps.qgis_server_views',
+                           url(r'^(?P<mapid>[^/]+)/qlr$',
+                               'map_download_qlr',
+                               name='map_download_qlr'),
+                           )
 
-urlpatterns = patterns(
+urlpatterns += patterns(
     'geonode.maps.views',
     url(r'^$',
         TemplateView.as_view(template_name='maps/map_list.html'),
