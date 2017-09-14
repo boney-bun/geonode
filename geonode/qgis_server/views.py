@@ -126,7 +126,7 @@ def download_qgs(request, layername):
         request.content, content_type="application/xml",
         status=request.status_code)
     response['Content-Disposition'] = \
-        'attachment; filename=%s' % layer.name+ '.qgs'
+        'attachment; filename=%s' % layer.name + '.qgs'
 
     return response
 
