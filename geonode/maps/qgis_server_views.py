@@ -165,7 +165,7 @@ def map_download_qlr(request, mapid):
 
     return response
 
-  
+
 class MapEmbedView(DetailView):
         model = Map
         template_name = 'leaflet_maps/map_detail.html'
