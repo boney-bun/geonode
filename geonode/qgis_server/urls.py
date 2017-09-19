@@ -22,6 +22,7 @@ from django.conf.urls import patterns, url
 
 from geonode.qgis_server.views import (
     download_zip,
+    download_qgs,
     tile,
     tile_404,
     legend,
@@ -30,7 +31,8 @@ from geonode.qgis_server.views import (
     qgis_server_pdf,
     qgis_server_map_print,
     geotiff,
-    qml_style, set_thumbnail)
+    download_qlr,
+    qml_style, set_thumbnail, default_qml_style)
 
 
 urlpatterns = patterns(
@@ -43,12 +45,35 @@ urlpatterns = patterns(
         name='download-zip'
     ),
     url(
+        r'^download-qgs/(?P<layername>[\w]*)$',
+        download_qgs,
+        name='download-qgs'
+    ),
+    url(
         r'^tiles/'
         r'(?P<layername>[^/]*)/'
         r'(?P<z>[0-9]*)/'
         r'(?P<x>[0-9]*)/'
         r'(?P<y>[0-9]*).png$',
         tile,
+        name='tile'
+    ),
+    url(
+        r'^tiles/'
+        r'(?P<layername>[^/]*)/'
+        r'(?P<style>[^/]*)/'
+        r'(?P<z>[0-9]*)/'
+        r'(?P<x>[0-9]*)/'
+        r'(?P<y>[0-9]*).png$',
+        tile,
+        name='tile'
+    ),
+    url(
+        r'^tiles/'
+        r'(?P<layername>[^/]*)/'
+        r'(?P<style>[^/]*)/'
+        r'\{z\}/\{x\}/\{y\}.png$',
+        tile_404,
         name='tile'
     ),
     url(
@@ -63,7 +88,14 @@ urlpatterns = patterns(
         name='geotiff'
     ),
     url(
-        r'^legend/(?P<layername>[\w]*)(?:/(?P<layertitle>[\w]*))?$',
+        r'^legend/(?P<layername>[\w]*)/'
+        r'(?P<style>[\w]*)/'
+        r'(?:/(?P<layertitle>(True|False)))?$',
+        legend,
+        name='legend'
+    ),
+    url(
+        r'^legend/(?P<layername>[\w]*)(?:/(?P<layertitle>(True|False)))?$',
         legend,
         name='legend'
     ),
@@ -98,12 +130,22 @@ urlpatterns = patterns(
         name='map-print'
     ),
     url(
-        r'^style/(?P<layername>[^/]*)/edit$',
-        qml_style,
-        name='update-qml'
+        r'^style/default/(?P<layername>[^/]*)(?:/(?P<style_name>[^/]*))?$',
+        default_qml_style,
+        name='default-qml'
     ),
     url(
-        r'^style/(?P<layername>[^/]*)$',
+        r'^style/upload/(?P<layername>[^/]*)(?:/(?P<style_name>[^/]*))?$',
+        qml_style,
+        name='upload-qml'
+    ),
+    url(
+        r'^style/remove/(?P<layername>[^/]*)/(?P<style_name>[^/]*)$',
+        qml_style,
+        name='remove-qml'
+    ),
+    url(
+        r'^style/download/(?P<layername>[^/]*)(?:/(?P<style_name>[^/]*))?$',
         qml_style,
         name='download-qml'
     ),
@@ -111,5 +153,10 @@ urlpatterns = patterns(
         r'^thumbnail/set/(?P<layername>[^/]*)$',
         set_thumbnail,
         name='set-thumbnail'
+    ),
+    url(
+       r'^download-qlr/(?P<layername>[\w]*)$',
+       download_qlr,
+       name='download-qlr'
     ),
 )

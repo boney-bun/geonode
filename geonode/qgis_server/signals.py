@@ -32,10 +32,11 @@ from requests.compat import urljoin
 
 from geonode import qgis_server
 from geonode.base.models import Link
-from geonode.layers.models import Layer
+from geonode.layers.models import Layer, LayerFile
 from geonode.maps.models import Map, MapLayer
 from geonode.qgis_server.gis_tools import set_attributes
-from geonode.qgis_server.helpers import tile_url_format, create_qgis_project
+from geonode.qgis_server.helpers import tile_url_format, create_qgis_project, \
+    style_list
 from geonode.qgis_server.models import QGISServerLayer, QGISServerMap
 from geonode.qgis_server.tasks.update import create_qgis_server_thumbnail
 from geonode.qgis_server.xml_utilities import update_xml
@@ -86,6 +87,12 @@ def qgis_server_post_save(instance, sender, **kwargs):
 
     This hook also creates QGIS Project. Which is essentials for QGIS Server.
     There are also several Geonode Links generated, like thumbnail and legends
+
+    :param instance: geonode Layer
+    :type instance: Layer
+
+    :param sender: geonode Layer type
+    :type sender: type(Layer)
     """
     if not sender == Layer:
         return
@@ -178,12 +185,11 @@ def qgis_server_post_save(instance, sender, **kwargs):
         link_mime = 'ZIP'
 
     # Zip file
-    Link.objects.get_or_create(
+    Link.objects.update_or_create(
         resource=instance.resourcebase_ptr,
-        url=zip_download_url,
+        name=link_name,
         defaults=dict(
             extension='zip',
-            name=link_name,
             mime=link_mime,
             url=zip_download_url,
             link_type='data'
@@ -197,16 +203,35 @@ def qgis_server_post_save(instance, sender, **kwargs):
             'qgis_server:layer-request', kwargs={'layername': instance.name}))
     ogc_wms_name = 'OGC WMS: %s Service' % instance.workspace
     ogc_wms_link_type = 'OGC:WMS'
-    Link.objects.get_or_create(
+    Link.objects.update_or_create(
         resource=instance.resourcebase_ptr,
-        url=ogc_wms_url,
+        name=ogc_wms_name,
         link_type=ogc_wms_link_type,
         defaults=dict(
             extension='html',
-            name=ogc_wms_name,
             url=ogc_wms_url,
             mime='text/html',
             link_type=ogc_wms_link_type
+        )
+    )
+
+    # QGS link layer workspace
+    ogc_qgs_url = urljoin(
+        base_url,
+        reverse(
+            'qgis_server:download-qgs',
+            kwargs={'layername': instance.name}))
+    logger.debug('qgs_download_url: %s' % ogc_qgs_url)
+    link_name = 'QGS Layer file'
+    link_mime = 'application/xml'
+    Link.objects.update_or_create(
+        resource=instance.resourcebase_ptr,
+        name=link_name,
+        defaults=dict(
+            extension='qgs',
+            mime=link_mime,
+            url=ogc_qgs_url,
+            link_type='data'
         )
     )
 
@@ -219,18 +244,37 @@ def qgis_server_post_save(instance, sender, **kwargs):
                 kwargs={'layername': instance.name}))
         ogc_wfs_name = 'OGC WFS: %s Service' % instance.workspace
         ogc_wfs_link_type = 'OGC:WFS'
-        Link.objects.get_or_create(
+        Link.objects.update_or_create(
             resource=instance.resourcebase_ptr,
-            url=ogc_wfs_url,
+            name=ogc_wfs_name,
             link_type=ogc_wfs_link_type,
             defaults=dict(
                 extension='html',
-                name=ogc_wfs_name,
                 url=ogc_wfs_url,
                 mime='text/html',
                 link_type=ogc_wfs_link_type
             )
         )
+
+    # QLR link layer workspace
+    ogc_qlr_url = urljoin(
+        base_url,
+        reverse(
+            'qgis_server:download-qlr',
+            kwargs={'layername': instance.name}))
+    logger.debug('qlr_download_url: %s' % ogc_qlr_url)
+    link_name = 'QGIS Layer file'
+    link_mime = 'application/xml'
+    Link.objects.update_or_create(
+        resource=instance.resourcebase_ptr,
+        name=link_name,
+        defaults=dict(
+            extension='qlr',
+            mime=link_mime,
+            url=ogc_qlr_url,
+            link_type='data'
+        )
+    )
 
     # if layer has overwrite attribute, then it probably comes from
     # importlayers management command and needs to be overwritten
@@ -241,16 +285,27 @@ def qgis_server_post_save(instance, sender, **kwargs):
         instance, qgis_layer.qgis_project_path, overwrite=overwrite,
         internal=True)
 
+    # Generate style model cache
+    style_list(instance, internal=False)
+
+    # Remove QML file if necessary
+    try:
+        qml_file = instance.upload_session.layerfile_set.get(name='qml')
+        if not os.path.exists(qml_file.file.path):
+            qml_file.delete()
+    except LayerFile.DoesNotExist:
+        pass
+
     logger.debug('Creating the QGIS Project : %s' % response.url)
     if response.content != 'OK':
         logger.debug('Result : %s' % response.content)
 
-    Link.objects.get_or_create(
+    Link.objects.update_or_create(
         resource=instance.resourcebase_ptr,
-        url=tile_url_format(instance.name),
+        name="Tiles",
         defaults=dict(
+            url=tile_url_format(instance.name),
             extension='tiles',
-            name="Tiles",
             mime='image/png',
             link_type='image'
         )
@@ -263,12 +318,12 @@ def qgis_server_post_save(instance, sender, **kwargs):
         geotiff_url = urljoin(base_url, geotiff_url)
         logger.debug('geotif_url: %s' % geotiff_url)
 
-        Link.objects.get_or_create(
+        Link.objects.update_or_create(
             resource=instance.resourcebase_ptr,
-            url=geotiff_url,
+            name="GeoTIFF",
             defaults=dict(
                 extension=original_ext.split('.')[-1],
-                name="GeoTIFF",
+                url=geotiff_url,
                 mime='image/tiff',
                 link_type='image'
             )
@@ -280,12 +335,11 @@ def qgis_server_post_save(instance, sender, **kwargs):
         kwargs={'layername': instance.name}
     )
     legend_url = urljoin(base_url, legend_url)
-    Link.objects.get_or_create(
+    Link.objects.update_or_create(
         resource=instance.resourcebase_ptr,
-        url=legend_url,
+        name='Legend',
         defaults=dict(
             extension='png',
-            name='Legend',
             url=legend_url,
             mime='image/png',
             link_type='image',
