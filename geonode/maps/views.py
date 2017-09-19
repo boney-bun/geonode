@@ -25,6 +25,7 @@ from guardian.shortcuts import get_perms
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.urlresolvers import reverse
+from django.shortcuts import redirect
 from django.core.serializers.json import DjangoJSONEncoder
 from django.http import HttpResponse, HttpResponseRedirect, HttpResponseNotAllowed, HttpResponseServerError
 from django.shortcuts import render_to_response, get_object_or_404
@@ -64,6 +65,8 @@ from geonode.utils import num_encode, num_decode
 from geonode.utils import build_social_links
 from geonode import geoserver, qgis_server
 import urlparse
+import requests
+from requests.compat import urljoin
 
 if check_ogc_backend(geoserver.BACKEND_PACKAGE):
     # FIXME: The post service providing the map_status object
@@ -722,7 +725,6 @@ def map_download(request, mapid, template='maps/map_download.html'):
 
     map_status = dict()
     if request.method == 'POST':
-        url = "%srest/process/batchDownload/launch/" % ogc_server_settings.LOCATION
 
         def perm_filter(layer):
             return request.user.has_perm(
@@ -733,18 +735,25 @@ def map_download(request, mapid, template='maps/map_download.html'):
 
         # we need to remove duplicate layers
         j_map = json.loads(mapJson)
-        j_layers = j_map["layers"]
-        for j_layer in j_layers:
-            if j_layer["service"] is None:
-                j_layers.remove(j_layer)
-                continue
-            if(len([l for l in j_layers if l == j_layer])) > 1:
-                j_layers.remove(j_layer)
-        mapJson = json.dumps(j_map)
+        json_layers = ""
 
-        resp, content = http_client.request(url, 'POST', body=mapJson)
+        for element in j_map["layers"]:
+            json_layers += element["name"]
 
-        status = int(resp.status)
+        if 'geonode.geoserver' in settings.INSTALLED_APPS:
+            # TODO the url needs to be verified on geoserver
+            url = "%srest/process/batchDownload/launch/" % ogc_server_settings.LOCATION
+        elif 'geonode.qgis_server' in settings.INSTALLED_APPS:
+            url = urljoin(settings.SITEURL,
+                          reverse("qgis_server:download-map", kwargs={'mapid': mapid}))
+            # qgis-server backend stop here, continue on qgis_server/views.py
+            return redirect(url)
+
+        # the path to geoserver
+        resp, content = http_client.request(url, 'POST', layers=layers)
+        # resp = requests.get(url)
+
+        status = int(resp.status_code)
 
         if status == 200:
             map_status = json.loads(content)
