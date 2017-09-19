@@ -22,6 +22,7 @@ from django.conf.urls import patterns, url
 
 from geonode.qgis_server.views import (
     download_zip,
+    download_qgs,
     tile,
     tile_404,
     legend,
@@ -30,6 +31,7 @@ from geonode.qgis_server.views import (
     qgis_server_pdf,
     qgis_server_map_print,
     geotiff,
+    download_qlr,
     qml_style, set_thumbnail, default_qml_style)
 
 
@@ -41,6 +43,11 @@ urlpatterns = patterns(
         r'^download-zip/(?P<layername>[\w]*)$',
         download_zip,
         name='download-zip'
+    ),
+    url(
+        r'^download-qgs/(?P<layername>[\w]*)$',
+        download_qgs,
+        name='download-qgs'
     ),
     url(
         r'^tiles/'
@@ -123,28 +130,33 @@ urlpatterns = patterns(
         name='map-print'
     ),
     url(
-        r'^style/(?P<layername>[^/]*)(?:/(?P<style_name>[^/]*))?/edit$',
+        r'^style/default/(?P<layername>[^/]*)(?:/(?P<style_name>[^/]*))?$',
+        default_qml_style,
+        name='default-qml'
+    ),
+    url(
+        r'^style/upload/(?P<layername>[^/]*)(?:/(?P<style_name>[^/]*))?$',
         qml_style,
         name='upload-qml'
     ),
     url(
-        r'^style/(?P<layername>[^/]*)(?:/(?P<style_name>[^/]*))?$',
-        qml_style,
-        name='download-qml'
-    ),
-    url(
-        r'^style/(?P<layername>[^/]*)(?:/(?P<style_name>[^/]*))?$',
+        r'^style/remove/(?P<layername>[^/]*)/(?P<style_name>[^/]*)$',
         qml_style,
         name='remove-qml'
     ),
     url(
-        r'^style/(?P<layername>[^/]*)/(?P<style_name>[^/]*)/default$',
-        default_qml_style,
-        name='default-qml'
+        r'^style/download/(?P<layername>[^/]*)(?:/(?P<style_name>[^/]*))?$',
+        qml_style,
+        name='download-qml'
     ),
     url(
         r'^thumbnail/set/(?P<layername>[^/]*)$',
         set_thumbnail,
         name='set-thumbnail'
+    ),
+    url(
+       r'^download-qlr/(?P<layername>[\w]*)$',
+       download_qlr,
+       name='download-qlr'
     ),
 )

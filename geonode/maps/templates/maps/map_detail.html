@@ -264,7 +264,7 @@
                     <p>To embed this map, add the following code snippet and customize its properties (scrolling, width,
                         height) based on your needs to your site:</p>
                     <p style="font-weight: bold">
-                        &lt;iframe scrolling="yes" src="{{ SITEURL }}{% url "map_embed" resource.id %}"
+                        &lt;iframe scrolling="yes" src="{{ SITEURL|slice:":-1" }}{% url "map_embed" resource.id %}"
                         width="480px" height="360px"&gt;&lt;/iframe&gt;
                     </p>
                 </div>
@@ -309,7 +309,6 @@
             </div>
         </div>
     </div>
-
 
   {% endblock %}
 

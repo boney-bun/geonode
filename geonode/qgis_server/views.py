@@ -47,6 +47,8 @@ from geonode.qgis_server.helpers import (
     tile_url_format,
     legend_url,
     tile_url,
+    qgs_url,
+    qlr_url,
     qgis_server_endpoint, style_get_url, style_list, style_add_url,
     style_remove_url, style_set_default_url)
 from geonode.qgis_server.models import QGISServerLayer
@@ -104,6 +106,29 @@ def download_zip(request, layername):
     resp['Content-Disposition'] = 'attachment; filename=%s' % zip_filename
 
     return resp
+
+
+def download_qgs(request, layername):
+    """Download QGS file for a layer.
+
+    :param layername: The request from frontend.
+    :type layername: HttpRequest
+
+    :param layername: The layer name in Geonode.
+    :type layername: basestring
+
+    :return: QGS file.
+    """
+    layer = get_object_or_404(Layer, name=layername)
+    url = qgs_url(layer, internal=True)
+    request = requests.get(url)
+    response = HttpResponse(
+        request.content, content_type="application/xml",
+        status=request.status_code)
+    response['Content-Disposition'] = \
+        'attachment; filename=%s' % layer.name + '.qgs'
+
+    return response
 
 
 def legend(request, layername, layertitle=False, style=None):
@@ -498,7 +523,7 @@ def qml_style(request, layername, style_name=None):
                 'change_resourcebase', layer.get_self_resource()):
             return HttpResponse(
                 'User does not have permission to change QML style.',
-                status=401)
+                status=403)
 
         # Request about adding new QML style
 
@@ -512,7 +537,7 @@ def qml_style(request, layername, style_name=None):
                     'resource': layer,
                     'style_upload_form': form
                 },
-                status=200).render()
+                status=400).render()
 
         try:
             uploaded_qml = request.FILES['qml']
@@ -561,7 +586,7 @@ def qml_style(request, layername, style_name=None):
                         'alert_message': response.content,
                         'alert_class': 'alert-danger'
                     },
-                    status=200).render()
+                    status=response.status_code).render()
 
             # We succeeded on adding new style
 
@@ -583,7 +608,7 @@ def qml_style(request, layername, style_name=None):
                     'alert_class': 'alert-success',
                     'alert_message': alert_message
                 },
-                status=200).render()
+                status=201).render()
 
         except Exception as e:
             logger.exception(e)
@@ -621,7 +646,7 @@ def qml_style(request, layername, style_name=None):
                     'alert_message': alert_message,
                     'alert_class': 'alert-danger'
                 },
-                status=200).render()
+                status=response.status_code).render()
 
         # Successfully removed styles
         # Handle when default style is deleted.
@@ -645,7 +670,7 @@ def qml_style(request, layername, style_name=None):
     return HttpResponseBadRequest()
 
 
-def default_qml_style(request, layername, style_name):
+def default_qml_style(request, layername, style_name=None):
     """Set default style used by layer.
 
     :param layername: The layer name in Geonode.
@@ -667,6 +692,16 @@ def default_qml_style(request, layername, style_name):
         return HttpResponse(
             json.dumps(retval), content_type='application/json')
     elif request.method == 'POST':
+        # For people who uses API request
+        if not request.user.has_perm(
+                'change_resourcebase', layer.get_self_resource()):
+            return HttpResponse(
+                'User does not have permission to change QML style.',
+                status=403)
+
+        if not style_name:
+            return HttpResponseBadRequest()
+
         style_url = style_set_default_url(layer, style_name)
 
         response = requests.get(style_url)
@@ -715,7 +750,7 @@ def set_thumbnail(request, layername):
             'change_resourcebase', layer.get_self_resource()):
         return HttpResponse(
             'User does not have permission to change thumbnail.',
-            status=401)
+            status=403)
 
     # extract bbox
     bbox_string = request.POST['bbox']
@@ -730,3 +765,25 @@ def set_thumbnail(request, layername):
     }
     return HttpResponse(
         json.dumps(retval), content_type="application/json")
+
+
+def download_qlr(request, layername):
+    """Download QLR file for a layer.
+
+    :param layername: The layer name in Geonode.
+    :type layername: basestring
+
+    :return: QLR file.
+    """
+    layer = get_object_or_404(Layer, name=layername)
+    url = qlr_url(layer, internal=True)
+
+    request = requests.get(url)
+    response = HttpResponse(
+                            request.content,
+                            content_type="application/xml",
+                            status=request.status_code)
+    response['Content-Disposition'] = \
+        'attachment; filename=%s' % layer.name + '.qlr'
+
+    return response
