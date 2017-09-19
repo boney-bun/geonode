@@ -735,10 +735,14 @@ def map_download(request, mapid, template='maps/map_download.html'):
 
         # we need to remove duplicate layers
         j_map = json.loads(mapJson)
-        json_layers = ""
-
-        for element in j_map["layers"]:
-            json_layers += element["name"]
+        j_layers = j_map["layers"]
+        for j_layer in j_layers:
+            if j_layer["service"] is None:
+                j_layers.remove(j_layer)
+                continue
+            if (len([l for l in j_layers if l == j_layer])) > 1:
+                j_layers.remove(j_layer)
+        mapJson = json.dumps(j_map)
 
         if 'geonode.geoserver' in settings.INSTALLED_APPS:
             # TODO the url needs to be verified on geoserver
@@ -749,11 +753,10 @@ def map_download(request, mapid, template='maps/map_download.html'):
             # qgis-server backend stop here, continue on qgis_server/views.py
             return redirect(url)
 
-        # the path to geoserver
-        resp, content = http_client.request(url, 'POST', layers=layers)
-        # resp = requests.get(url)
+        # the path to geoserver backend continue here
+        resp, content = http_client.request(url, 'POST', layers=mapJson)
 
-        status = int(resp.status_code)
+        status = int(resp.status)
 
         if status == 200:
             map_status = json.loads(content)
