@@ -867,8 +867,8 @@ DOWNLOAD_FORMATS_METADATA = [
 DOWNLOAD_FORMATS_VECTOR = [
     'JPEG', 'PDF', 'PNG', 'Zipped Shapefile', 'GML 2.0', 'GML 3.1.1', 'CSV',
     'Excel', 'GeoJSON', 'KML', 'View in Google Earth', 'Tiles',
-    'QGIS Layer file',
-    'QGS Layer file',
+    'QGIS layer file (.qlr)',
+    'QGIS project file (.qgs)',
 ]
 DOWNLOAD_FORMATS_RASTER = [
     'JPEG',
@@ -883,8 +883,8 @@ DOWNLOAD_FORMATS_RASTER = [
     'Tiles',
     'GML',
     'GZIP',
-    'QGIS Layer file',
-    'QGS Layer file',
+    'QGIS layer file (.qlr)',
+    'QGIS project file (.qgs)',
     'Zipped All Files'
 ]
 

@@ -121,12 +121,19 @@ def download_qgs(request, layername):
     """
     layer = get_object_or_404(Layer, name=layername)
     url = qgs_url(layer, internal=True)
-    request = requests.get(url)
+    result = requests.get(url)
+
+    # use layer.name if layer.title is empty.
+    if layer.title:
+        layer_title = layer.title
+    else:
+        layer_title = layer.name
+
     response = HttpResponse(
-        request.content, content_type="application/xml",
-        status=request.status_code)
+        result.content, content_type="application/xml",
+        status=result.status_code)
     response['Content-Disposition'] = \
-        'attachment; filename=%s' % layer.name + '.qgs'
+        'attachment; filename=%s.qgs' % layer_title
 
     return response
 
@@ -778,12 +785,18 @@ def download_qlr(request, layername):
     layer = get_object_or_404(Layer, name=layername)
     url = qlr_url(layer, internal=True)
 
-    request = requests.get(url)
+    # use layer.name if layer.title is empty.
+    if layer.title:
+        layer_title = layer.title
+    else:
+        layer_title = layer.name
+
+    result = requests.get(url)
     response = HttpResponse(
-                            request.content,
-                            content_type="application/xml",
-                            status=request.status_code)
+        result.content,
+        content_type="application/xml",
+        status=result.status_code)
     response['Content-Disposition'] = \
-        'attachment; filename=%s' % layer.name + '.qlr'
+        'attachment; filename=%s.qlr' % layer_title
 
     return response
