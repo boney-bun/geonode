@@ -132,6 +132,7 @@ def map_detail(request, mapid, snapshot=None, template='maps/map_detail.html'):
 
     config = json.dumps(config)
     layers = MapLayer.objects.filter(map=map_obj.id)
+    links = map_obj.link_set.download()
 
     context_dict = {
         'config': config,
@@ -140,6 +141,7 @@ def map_detail(request, mapid, snapshot=None, template='maps/map_detail.html'):
         'perms_list': get_perms(request.user, map_obj.get_self_resource()),
         'permissions_json': _perms_info_json(map_obj),
         "documents": get_related_documents(map_obj),
+        'links': links,
     }
 
     context_dict["preview"] = getattr(
