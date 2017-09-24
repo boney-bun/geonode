@@ -22,6 +22,8 @@ import requests
 
 from django.conf import settings
 from django.views.generic import CreateView, DetailView
+from django.views.decorators.clickjacking import xframe_options_exempt
+from django.utils.decorators import method_decorator
 from django.core.urlresolvers import reverse
 from django.http import HttpResponse
 
@@ -145,6 +147,10 @@ class MapEmbedView(DetailView):
 
         def get_object(self):
             return Map.objects.get(id=self.kwargs.get("mapid"))
+
+        @method_decorator(xframe_options_exempt)
+        def dispatch(self, *args, **kwargs):
+            return super(MapEmbedView, self).dispatch(*args, **kwargs)
 
 
 def map_download_qlr(request, mapid):
