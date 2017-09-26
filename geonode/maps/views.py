@@ -813,6 +813,14 @@ def map_download_check(request):
     return HttpResponse(content=content, status=status)
 
 
+def map_download_leaflet(request):
+    """
+    This function serves as geoserver compatibility.
+    We might need to embed leaflet page on geoserver in the future.
+    """
+    return HttpResponseBadRequest('Sorry, leaflet page has not supported yet')
+
+
 def map_download_qlr(request):
     """
     This function serves as geoserver compatibility.
