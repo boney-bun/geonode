@@ -39,13 +39,16 @@ if check_ogc_backend(geoserver.BACKEND_PACKAGE):
     map_embed = 'map_embed'
     # TODO qlr for geoserver
     map_download_qlr = 'map_download_qlr'
+    map_download_leaflet = 'map_download_leaflet'
 
 elif check_ogc_backend(qgis_server.BACKEND_PACKAGE):
     new_map_view = MapCreateView.as_view()
     existing_map_view = MapDetailView.as_view()
     map_embed = MapEmbedView.as_view()
-    from geonode.maps.qgis_server_views import map_download_qlr
+    from geonode.maps.qgis_server_views import map_download_qlr, \
+        map_download_leaflet
     map_download_qlr = map_download_qlr
+    map_download_leaflet = map_download_leaflet
 
 urlpatterns = patterns(
     'geonode.maps.views',
@@ -65,6 +68,7 @@ urlpatterns = patterns(
     url(r'^(?P<mapid>[^/]+)/edit$', 'map_edit', name='map_edit'),
     url(r'^(?P<mapid>[^/]+)/data$', 'map_json', name='map_json'),
     url(r'^(?P<mapid>[^/]+)/download$', 'map_download', name='map_download'),
+    url(r'^(?P<mapid>[^/]+)/download_leaflet', map_download_leaflet, name='map_download_leaflet'),
     url(r'^(?P<mapid>[^/]+)/wmc$', 'map_wmc', name='map_wmc'),
     url(r'^(?P<mapid>[^/]+)/wms$', 'map_wms', name='map_wms'),
     url(r'^(?P<mapid>[^/]+)/remove$', 'map_remove', name='map_remove'),
