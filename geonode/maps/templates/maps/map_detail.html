@@ -287,24 +287,8 @@
                     <h4 class="modal-title" id="myModalLabel">{% trans "Embed Widget" %}</h4>
                 </div>
                 <div class="modal-body">
-                    <p>To embed this map, the first step is to import a library and a js function to the html's head section on your site:</p>
-                    <p style="font-weight: bold; font-size: small;">
-                    <p>&lt;script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"&gt;&lt;/script&gt;</p>
-                    <p>&lt;script type="text/javascript"&gt;</p>
-                    <ul style="list-style: none;">
-                        <li>$.get("{{ SITEURL|slice:":-1" }}{% url "map_embed" resource.id %}", function(data) {</li>
-                        <li>&nbsp;&nbsp;&nbsp;if(data) {</li>
-                        <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;$("#embed-map-link").html(data)</li>
-                        <li>&nbsp;&nbsp;&nbsp;}</li>
-                        <li>});</li>
-                    </ul>
-                    <p>&lt;/script&gt;</p>
-                    </p>
-
-                    <p>Finally, insert the div tag below into a location suits your need in the html's body</p>
-                    <p style="font-weight: bold;font-size: small;">
-                        &lt;div id="embed-map-link"&gt;&lt;/div&gt;
-                    </p>
+                    <p>To embed this map, copy the following code snippet into your own page:</p>
+                    <pre id="embed-widget-body" style="font-size: 0.5em"></pre>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-default" data-dismiss="modal">{% trans "Close" %}</button>
@@ -327,6 +311,18 @@
 {% endif %}
 {% include 'rating.html' %}
 <script type="text/javascript">
+    $(document).ready(function () {
+        post_url = '{% url 'map_embed_widget' resource.id %}';
+        var formatted_data = "";
+        $.post(post_url, function (data) {
+            data = data.split("\n");
+            data_row = data.length;
+            for (var i=0; i < data_row;i++) {
+                formatted_data += data[i] + "\n";
+            }
+            $('#embed-widget-body').text(formatted_data);
+        });
+    });
  $(function() {
 
   {% verbatim %}

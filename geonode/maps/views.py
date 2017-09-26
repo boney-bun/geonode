@@ -354,6 +354,14 @@ def map_embed(
     }))
 
 
+def map_embed_widget(request):
+    """
+    This function serves as geoserver compatibility.
+    We might need to embed widget on geoserver in the future.
+    """
+    return HttpResponseBadRequest('Sorry, Embed Widget has not supported yet')
+
+
 # MAPS VIEWER #
 
 

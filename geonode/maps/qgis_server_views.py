@@ -26,6 +26,7 @@ from django.views.decorators.clickjacking import xframe_options_exempt
 from django.utils.decorators import method_decorator
 from django.core.urlresolvers import reverse
 from django.http import HttpResponse
+from django.shortcuts import render
 
 from geonode.maps.views import _resolve_map, _PERMISSION_MSG_VIEW, \
     snapshot_config
@@ -216,3 +217,35 @@ def map_download_qlr(request, mapid):
                                       % map_obj.title + '.qlr'
 
     return response
+
+
+def map_embed_widget(request, mapid,
+                         template='leaflet_maps/map_embed_widget.html'):
+    """Display code snippet for embedding widget.
+
+    :param request: The request from the frontend.
+    :type request: HttpRequest
+
+    :param mapid: The id of the map.
+    :type mapid: String
+
+    :return: formatted code.
+    """
+
+    map_obj = _resolve_map(request,
+                           mapid,
+                           'base.view_resourcebase',
+                           _PERMISSION_MSG_VIEW)
+    map_layers = MapLayer.objects.filter(
+        map_id=mapid).order_by('stack_order')
+    layers = []
+    for layer in map_layers:
+        if layer.group != 'background':
+            layers.append(layer)
+
+    context = {
+        'resource': map_obj,
+        'map_layers': layers
+    }
+    message = render(request, template, context)
+    return HttpResponse(message)
