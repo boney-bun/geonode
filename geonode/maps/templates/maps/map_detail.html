@@ -291,6 +291,7 @@
                     <pre id="embed-widget-body" style="font-size: 0.5em"></pre>
                 </div>
                 <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-clipboard-target="#embed-widget-body">{% trans "Copy to Clipboard" %}</button>
                     <button type="button" class="btn btn-default" data-dismiss="modal">{% trans "Close" %}</button>
                 </div>
             </div>
@@ -310,6 +311,7 @@
       {% overall_rating resource "map" as the_map_rating %}
 {% endif %}
 {% include 'rating.html' %}
+<script type="text/javascript" src="{{ STATIC_URL}}geonode/js/utils/clipboard.min.js"></script>
 <script type="text/javascript">
     $(document).ready(function () {
         post_url = '{% url 'map_embed_widget' resource.id %}';
@@ -322,6 +324,13 @@
             }
             $('#embed-widget-body').text(formatted_data);
         });
+    });
+    var clipboard = new Clipboard('.btn');
+    clipboard.on('success', function(e) {
+        alert("Code copied");
+    });
+    clipboard.on('error', function(e) {
+        alert("Oops.. something went wrong");
     });
  $(function() {
 

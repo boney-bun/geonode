@@ -7,7 +7,12 @@
         $(document).ready(function () {
             var wmsLayer = null;
             var firstProjection = proj4('EPSG:3857');
+
+            {% if resource.srid %}
+            var secondProjection = proj4('{{ resource.srid }}');
+            {% else %}
             var secondProjection = proj4('EPSG:4326');
+            {% endif %}
 
             var point_wsg84 = proj4(firstProjection, secondProjection, [{{ resource.center_x }}, {{ resource.center_y }}]);
             var map = L.map('map').setView([point_wsg84[1], point_wsg84[0]], 6);
@@ -16,7 +21,6 @@
             });
             map.addLayer(osm);
 
-            firstProjection = proj4('{{ resource.srid }}');
             var corner0 = [{{ resource.bbox_x0 }}, {{ resource.bbox_y0 }}];
             var corner1 = [{{ resource.bbox_x1 }}, {{ resource.bbox_y1 }}];
 
