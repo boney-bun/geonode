@@ -220,7 +220,7 @@ def map_download_qlr(request, mapid):
 
 
 def map_embed_widget(request, mapid,
-                         template='leaflet_maps/map_embed_widget.html'):
+                     template='leaflet_maps/map_embed_widget.html'):
     """Display code snippet for embedding widget.
 
     :param request: The request from the frontend.
