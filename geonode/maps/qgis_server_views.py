@@ -155,7 +155,7 @@ class MapCreateView(CreateView):
                             service.base_url).netloc
 
                         if access_token and ogc_server_url == service_url and \
-                            'access_token' not in service.base_url:
+                                'access_token' not in service.base_url:
                             url = service.base_url + \
                                   '?access_token=' + access_token
                         else:
@@ -176,7 +176,7 @@ class MapCreateView(CreateView):
                         layer_url = urlparse.urlsplit(layer.ows_url).netloc
 
                         if access_token and ogc_server_url == layer_url and \
-                            'access_token' not in layer.ows_url:
+                                'access_token' not in layer.ows_url:
                             url = layer.ows_url + '?access_token=' + \
                                   access_token
                         else:
