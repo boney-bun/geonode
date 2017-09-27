@@ -602,6 +602,9 @@
         createMapThumbnail();
         $('#edit-layer').modal('toggle');
       });
+      {% if show_popup %}
+        $('#download-layer').modal('toggle');
+      {% endif %}
     </script>
     {% if GEONODE_SECURITY_ENABLED %}
     {% include "_permissions_form_js.html" %}
