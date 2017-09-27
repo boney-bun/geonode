@@ -155,28 +155,28 @@ class MapCreateView(CreateView):
                             service.base_url).netloc
 
                         if access_token and ogc_server_url == service_url and \
-                                        'access_token' not in service.base_url:
+                            'access_token' not in service.base_url:
                             url = service.base_url + \
                                   '?access_token=' + access_token
                         else:
                             url = service.base_url
                         map_layers = MapLayer(map=map_obj,
-                            name=layer.typename,
-                            ows_url=layer.ows_url,
-                            layer_params=json.dumps(config),
-                            visibility=True,
-                            source_params=json.dumps({
-                                "ptype": service.ptype,
-                                "remote": True,
-                                "url": url,
-                                "name": service.name}))
+                                              name=layer.typename,
+                                              ows_url=layer.ows_url,
+                                              layer_params=json.dumps(config),
+                                              visibility=True,
+                                              source_params=json.dumps({
+                                                "ptype": service.ptype,
+                                                "remote": True,
+                                                "url": url,
+                                                "name": service.name}))
                     else:
                         ogc_server_url = urlparse.urlsplit(
                             ogc_server_settings.PUBLIC_LOCATION).netloc
                         layer_url = urlparse.urlsplit(layer.ows_url).netloc
 
                         if access_token and ogc_server_url == layer_url and \
-                                        'access_token' not in layer.ows_url:
+                            'access_token' not in layer.ows_url:
                             url = layer.ows_url + '?access_token=' + \
                                   access_token
                         else:
