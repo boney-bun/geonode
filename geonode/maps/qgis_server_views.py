@@ -19,8 +19,11 @@
 #########################################################################
 import json
 import requests
+import math
 
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
+from django.core.serializers.json import DjangoJSONEncoder
 from django.views.generic import CreateView, DetailView
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.utils.decorators import method_decorator
@@ -28,10 +31,24 @@ from django.core.urlresolvers import reverse
 from django.http import HttpResponse
 
 from geonode.maps.views import _resolve_map, _PERMISSION_MSG_VIEW, \
-    snapshot_config
+    snapshot_config, _resolve_layer
 
 from geonode.maps.models import Map, MapLayer
 from geonode.layers.models import Layer
+
+from geonode.utils import default_map_config, forward_mercator, \
+    llbbox_to_mercator, check_ogc_backend
+from geonode import geoserver, qgis_server
+
+import urlparse
+
+if check_ogc_backend(geoserver.BACKEND_PACKAGE):
+    # FIXME: The post service providing the map_status object
+    # should be moved to geonode.geoserver.
+    from geonode.geoserver.helpers import ogc_server_settings
+
+elif check_ogc_backend(qgis_server.BACKEND_PACKAGE):
+    from geonode.qgis_server.helpers import ogc_server_settings
 
 
 class MapCreateView(CreateView):
@@ -41,13 +58,201 @@ class MapCreateView(CreateView):
     context_object_name = 'map'
 
     def get_context_data(self, **kwargs):
-        # list all required layers
-        layers = Layer.objects.all()
-        context = {
-            'create': True,
-            'layers': layers
-        }
-        return context
+        request = self.request
+        if 'access_token' in request.session:
+            access_token = request.session['access_token']
+        else:
+            access_token = None
+
+            DEFAULT_MAP_CONFIG, DEFAULT_BASE_LAYERS = default_map_config(request)
+
+        if request.method == 'GET' and 'copy' in request.GET:
+            """Prepare context data."""
+            request = self.request
+            mapid = self.request.GET['copy']
+
+            map_obj = _resolve_map(
+                request, mapid, 'base.view_resourcebase', _PERMISSION_MSG_VIEW)
+
+            snapshot = self.kwargs.get('snapshot')
+            if snapshot is None:
+                config = map_obj.viewer_json(request.user, access_token)
+            else:
+                config = snapshot_config(snapshot, map_obj, request.user,
+                                         access_token)
+            # list all required layers
+            layers = Layer.objects.all()
+            map_layers = MapLayer.objects.filter(
+                map_id=mapid).order_by('stack_order')
+            context = {
+                'config': json.dumps(config),
+                'create': False,
+                'layers': layers,
+                'map': map_obj,
+                'map_layers': map_layers,
+                'preview': getattr(
+                    settings,
+                    'LAYER_PREVIEW_LIBRARY',
+                    '')
+            }
+            return context
+        else:
+            if request.method == 'GET':
+                params = request.GET
+            elif request.method == 'POST':
+                params = request.POST
+            else:
+                return self.render_to_response(status=405)
+
+            if 'layer' in params:
+                bbox = None
+                map_obj = Map(projection=getattr(
+                    settings, 'DEFAULT_MAP_CRS', 'EPSG:3857'))
+
+                layers = []
+                for layer_name in params.getlist('layer'):
+                    try:
+                        layer = _resolve_layer(request, layer_name)
+                    except ObjectDoesNotExist:
+                        # bad layer, skip
+                        continue
+
+                    if not request.user.has_perm(
+                            'view_resourcebase',
+                            obj=layer.get_self_resource()):
+                        # invisible layer, skip inclusion
+                        continue
+
+                    layer_bbox = layer.bbox
+                    # assert False, str(layer_bbox)
+                    if bbox is None:
+                        bbox = list(layer_bbox[0:4])
+                    else:
+                        bbox[0] = min(bbox[0], layer_bbox[0])
+                        bbox[1] = min(bbox[1], layer_bbox[1])
+                        bbox[2] = max(bbox[2], layer_bbox[2])
+                        bbox[3] = max(bbox[3], layer_bbox[3])
+
+                    config = layer.attribute_config()
+
+                    # Add required parameters for GXP lazy-loading
+                    config["title"] = layer.title
+                    config["queryable"] = True
+
+                    config["srs"] = getattr(settings,
+                                            'DEFAULT_MAP_CRS', 'EPSG:3857')
+                    config["bbox"] = bbox if config["srs"] != 'EPSG:3857' \
+                        else llbbox_to_mercator(
+                        [float(coord) for coord in bbox])
+
+                    if layer.storeType == "remoteStore":
+                        service = layer.service
+                        # Probably not a good idea to send the access token to every remote service.
+                        # This should never match, so no access token should be sent to remote services.
+                        ogc_server_url = urlparse.urlsplit(
+                            ogc_server_settings.PUBLIC_LOCATION).netloc
+                        service_url = urlparse.urlsplit(
+                            service.base_url).netloc
+
+                        if access_token and ogc_server_url == service_url and \
+                                'access_token' not in service.base_url:
+                            url = service.base_url + \
+                                  '?access_token=' + access_token
+                        else:
+                            url = service.base_url
+                        map_layers = MapLayer(map=map_obj,
+                                              name=layer.typename,
+                                              ows_url=layer.ows_url,
+                                              layer_params=json.dumps(config),
+                                              visibility=True,
+                                              source_params=json.dumps({
+                                                "ptype": service.ptype,
+                                                "remote": True,
+                                                "url": url,
+                                                "name": service.name}))
+                    else:
+                        ogc_server_url = urlparse.urlsplit(
+                            ogc_server_settings.PUBLIC_LOCATION).netloc
+                        layer_url = urlparse.urlsplit(layer.ows_url).netloc
+
+                        if access_token and ogc_server_url == layer_url and \
+                                'access_token' not in layer.ows_url:
+                            url = layer.ows_url + '?access_token=' + \
+                                  access_token
+                        else:
+                            url = layer.ows_url
+                        map_layers = MapLayer(
+                            map=map_obj,
+                            name=layer.typename,
+                            ows_url=url,
+                            # use DjangoJSONEncoder to handle Decimal values
+                            layer_params=json.dumps(
+                                config,
+                                cls=DjangoJSONEncoder),
+                            visibility=True
+                        )
+
+                    layers.append(map_layers)
+
+                if bbox is not None:
+                    minx, miny, maxx, maxy = [float(coord) for coord in bbox]
+                    x = (minx + maxx) / 2
+                    y = (miny + maxy) / 2
+
+                    if getattr(settings,
+                               'DEFAULT_MAP_CRS', 'EPSG:3857') == "EPSG:4326":
+                        center = list((x, y))
+                    else:
+                        center = list(forward_mercator((x, y)))
+
+                    if center[1] == float('-inf'):
+                        center[1] = 0
+
+                    BBOX_DIFFERENCE_THRESHOLD = 1e-5
+
+                    # Check if the bbox is invalid
+                    valid_x = (maxx - minx) ** 2 > BBOX_DIFFERENCE_THRESHOLD
+                    valid_y = (maxy - miny) ** 2 > BBOX_DIFFERENCE_THRESHOLD
+
+                    if valid_x:
+                        width_zoom = math.log(360 / abs(maxx - minx), 2)
+                    else:
+                        width_zoom = 15
+
+                    if valid_y:
+                        height_zoom = math.log(360 / abs(maxy - miny), 2)
+                    else:
+                        height_zoom = 15
+
+                    map_obj.center_x = center[0]
+                    map_obj.center_y = center[1]
+                    map_obj.zoom = math.ceil(min(width_zoom, height_zoom))
+
+                map_obj.handle_moderated_uploads()
+                config = map_obj.viewer_json(
+                    request.user, access_token,
+                    *(DEFAULT_BASE_LAYERS + layers))
+                config['fromLayer'] = True
+                context = {
+                    'config': json.dumps(config),
+                    'create': True,
+                    'layers': layers,
+                    'map': map_obj,
+                    'map_layers': map_layers,
+                    'preview': getattr(
+                        settings,
+                        'LAYER_PREVIEW_LIBRARY',
+                        '')
+                }
+
+            else:
+                # list all required layers
+                layers = Layer.objects.all()
+                context = {
+                    'create': True,
+                    'layers': layers
+                }
+            return context
 
     def get_success_url(self):
         pass
