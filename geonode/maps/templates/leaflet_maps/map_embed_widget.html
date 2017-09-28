@@ -6,33 +6,14 @@
     <script type="text/javascript">
         $(document).ready(function () {
             var wmsLayer = null;
-            var firstProjection = proj4('EPSG:3857');
 
-            {% if resource.srid %}
-            var secondProjection = proj4('{{ resource.srid }}');
-            {% else %}
-            var secondProjection = proj4('EPSG:4326');
-            {% endif %}
-
-            var point_wsg84 = proj4(firstProjection, secondProjection, [{{ resource.center_x }}, {{ resource.center_y }}]);
-            var map = L.map('map').setView([point_wsg84[1], point_wsg84[0]], 6);
+            var map = L.map('map').setView([{{ resource.center_y }}, {{ resource.center_x }}], {{ resource.zoom }});
             var osm = L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors',
             });
             map.addLayer(osm);
 
-            var corner0 = [{{ resource.bbox_x0 }}, {{ resource.bbox_y0 }}];
-            var corner1 = [{{ resource.bbox_x1 }}, {{ resource.bbox_y1 }}];
-
-            corner0 = proj4(firstProjection, secondProjection, corner0);
-            corner1 = proj4(firstProjection, secondProjection, corner1);
-
-            var bbox = [
-                corner0[0],
-                corner0[1],
-                corner1[0],
-                corner1[1]
-            ];
+            var bbox = {{ map_bbox }};
 
             zoom_to_box(map, bbox);
 
@@ -54,8 +35,8 @@
                     map.addLayer(wmsLayer);
                 }
             {% endfor %}
-
         });
+
         function zoom_to_box(map, bbox) {
             var bounds = [
                 [bbox[1], bbox[0]],

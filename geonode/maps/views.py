@@ -371,6 +371,8 @@ def map_embed_widget(request, mapid,
                            mapid,
                            'base.view_resourcebase',
                            _PERMISSION_MSG_VIEW)
+    map_bbox = map_obj.bbox_string.split(',')
+
     map_layers = MapLayer.objects.filter(
         map_id=mapid).order_by('stack_order')
     layers = []
@@ -378,8 +380,47 @@ def map_embed_widget(request, mapid,
         if layer.group != 'background':
             layers.append(layer)
 
+    if map_obj.srid != 'EPSG:3857':
+        map_bbox = [float(coord) for coord in map_bbox]
+    else:
+        map_bbox = llbbox_to_mercator([float(coord) for coord in map_bbox])
+
+    if map_bbox is not None:
+        minx, miny, maxx, maxy = [float(coord) for coord in map_bbox]
+        x = (minx + maxx) / 2
+        y = (miny + maxy) / 2
+
+        if getattr(settings, 'DEFAULT_MAP_CRS') == "EPSG:3857":
+            center = list((x, y))
+        else:
+            center = list(forward_mercator((x, y)))
+
+        if center[1] == float('-inf'):
+            center[1] = 0
+
+        BBOX_DIFFERENCE_THRESHOLD = 1e-5
+
+        # Check if the bbox is invalid
+        valid_x = (maxx - minx) ** 2 > BBOX_DIFFERENCE_THRESHOLD
+        valid_y = (maxy - miny) ** 2 > BBOX_DIFFERENCE_THRESHOLD
+
+        if valid_x:
+            width_zoom = math.log(360 / abs(maxx - minx), 2)
+        else:
+            width_zoom = 15
+
+        if valid_y:
+            height_zoom = math.log(360 / abs(maxy - miny), 2)
+        else:
+            height_zoom = 15
+
+        map_obj.center_x = center[0]
+        map_obj.center_y = center[1]
+        map_obj.zoom = math.ceil(min(width_zoom, height_zoom))
+
     context = {
         'resource': map_obj,
+        'map_bbox': map_bbox,
         'map_layers': layers
     }
     message = render(request, template, context)
