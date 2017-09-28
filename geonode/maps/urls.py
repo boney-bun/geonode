@@ -39,6 +39,7 @@ if check_ogc_backend(geoserver.BACKEND_PACKAGE):
     map_embed = 'map_embed'
     # TODO qlr for geoserver
     map_download_qlr = 'map_download_qlr'
+    map_thumbnail = 'map_thumbnail'
 
 elif check_ogc_backend(qgis_server.BACKEND_PACKAGE):
     new_map_view = MapCreateView.as_view()
@@ -46,6 +47,8 @@ elif check_ogc_backend(qgis_server.BACKEND_PACKAGE):
     map_embed = MapEmbedView.as_view()
     from geonode.maps.qgis_server_views import map_download_qlr
     map_download_qlr = map_download_qlr
+    from geonode.maps.qgis_server_views import set_thumbnail_map
+    map_thumbnail = set_thumbnail_map
 
 urlpatterns = patterns(
     'geonode.maps.views',
@@ -72,7 +75,7 @@ urlpatterns = patterns(
     url(r'^(?P<mapid>[^/]+)/metadata_advanced$', 'map_metadata_advanced', name='map_metadata_advanced'),
     url(r'^(?P<mapid>[^/]+)/embed$', map_embed, name='map_embed'),
     url(r'^(?P<mapid>[^/]+)/history$', 'ajax_snapshot_history'),
-    url(r'^(?P<mapid>\d+)/thumbnail$', 'map_thumbnail', name='map_thumbnail'),
+    url(r'^(?P<mapid>\d+)/thumbnail$', map_thumbnail, name='map_thumbnail'),
     url(r'^(?P<mapid>[^/]+)/(?P<snapshot>[A-Za-z0-9_\-]+)/view$', 'map_view'),
     url(r'^(?P<mapid>[^/]+)/(?P<snapshot>[A-Za-z0-9_\-]+)/info$',
         'map_detail'),

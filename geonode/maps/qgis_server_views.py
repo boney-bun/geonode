@@ -49,6 +49,7 @@ if check_ogc_backend(geoserver.BACKEND_PACKAGE):
 
 elif check_ogc_backend(qgis_server.BACKEND_PACKAGE):
     from geonode.qgis_server.helpers import ogc_server_settings
+    from geonode.qgis_server.tasks.update import create_qgis_server_thumbnail
 
 
 class MapCreateView(CreateView):
@@ -421,3 +422,61 @@ def map_download_qlr(request, mapid):
                                       % map_obj.title + '.qlr'
 
     return response
+
+
+def set_thumbnail_map(request, mapid):
+    """Update thumbnail based on map extent
+
+    :param layername: The layer name in Geonode.
+    :type layername: basestring
+
+    :return success: true if success, None if fail.
+    :type success: bool
+    """
+    if request.method != 'POST':
+        return HttpResponse('Bad Request')
+
+    map_layers = MapLayer.objects.filter(map__id=mapid)
+    local_layers = [l for l in map_layers if l.local]
+
+    layers = {}
+    for layer in local_layers:
+        try:
+            l = Layer.objects.get(typename=layer.name)
+
+            layers[l.name] = l
+        except Layer.DoesNotExist:
+            msg = 'No Layer found for typename: {0}'.format(layer.name)
+
+    if not layers:
+        # The signal is called too early, or the map has no layer yet.
+        return
+
+    bbox = _get_bbox_from_layers(layers)
+
+    # Give thumbnail creation to celery tasks, and exit.
+    map_obj = Map.objects.get(id=mapid)
+    create_qgis_server_thumbnail.delay(map_obj, overwrite=True, bbox=bbox)
+    retval = {
+        'success': True
+    }
+    return HttpResponse(
+        json.dumps(retval), content_type="application/json")
+
+
+def _get_bbox_from_layers(layers):
+    """
+    Calculate the bbox from a given list of Layer objects
+    """
+    bbox = None
+    for layer in layers:
+        layer_bbox = layers[layer].bbox_string.split(',')
+        if bbox is None:
+            bbox = [float(key) for key in layer_bbox]
+        else:
+            bbox[0] = float(min(bbox[0], layer_bbox[0]))
+            bbox[1] = float(min(bbox[1], layer_bbox[1]))
+            bbox[2] = float(max(bbox[2], layer_bbox[2]))
+            bbox[3] = float(max(bbox[3], layer_bbox[3]))
+
+    return bbox
