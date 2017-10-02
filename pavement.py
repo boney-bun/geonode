@@ -89,11 +89,23 @@ def setup_geoserver(options):
 
     geoserver_dir = path('geoserver')
 
-    geoserver_bin = download_dir / os.path.basename(dev_config['GEOSERVER_URL'])
-    jetty_runner = download_dir / os.path.basename(dev_config['JETTY_RUNNER_URL'])
+    geoserver_bin = download_dir / \
+                    os.path.basename(dev_config['GEOSERVER_URL'])
+    jetty_runner = download_dir / \
+                   os.path.basename(dev_config['JETTY_RUNNER_URL'])
 
-    grab(options.get('geoserver', dev_config['GEOSERVER_URL']), geoserver_bin, "geoserver binary")
-    grab(options.get('jetty', dev_config['JETTY_RUNNER_URL']), jetty_runner, "jetty runner")
+    grab(
+        options.get(
+            'geoserver',
+            dev_config['GEOSERVER_URL']),
+        geoserver_bin,
+        "geoserver binary")
+    grab(
+        options.get(
+            'jetty',
+            dev_config['JETTY_RUNNER_URL']),
+        jetty_runner,
+        "jetty runner")
 
     if not geoserver_dir.exists():
         geoserver_dir.makedirs()
@@ -347,12 +359,7 @@ def start_geoserver(options):
     Start GeoServer with GeoNode extensions
     """
 
-    from geonode.settings import OGC_SERVER, INSTALLED_APPS
-
-    # only start if using Geoserver backend
-    if 'geonode.geoserver' not in INSTALLED_APPS:
-        return
-
+    from geonode.settings import OGC_SERVER
     GEOSERVER_BASE_URL = OGC_SERVER['default']['LOCATION']
     url = GEOSERVER_BASE_URL
 
@@ -364,8 +371,10 @@ def start_geoserver(options):
         sys.exit(1)
 
     download_dir = path('downloaded').abspath()
-    jetty_runner = download_dir / os.path.basename(dev_config['JETTY_RUNNER_URL'])
+    jetty_runner = download_dir / \
+        os.path.basename(dev_config['JETTY_RUNNER_URL'])
     data_dir = path('geoserver/data').abspath()
+    geofence_dir = path('geoserver/data/geofence').abspath()
     web_app = path('geoserver/geoserver').abspath()
     log_file = path('geoserver/jetty.log').abspath()
     config = path('scripts/misc/jetty-runner.xml').abspath()
@@ -376,11 +385,12 @@ def start_geoserver(options):
         javapath = "java"
         loggernullpath = os.devnull
 
-        # checking if our loggernullpath exists and if not, reset it to something manageable
+        # checking if our loggernullpath exists and if not, reset it to
+        # something manageable
         if loggernullpath == "nul":
             try:
                 open("../../downloaded/null.txt", 'w+').close()
-            except IOError, e:
+            except IOError as e:
                 print "Chances are that you have Geoserver currently running.  You \
                         can either stop all servers with paver stop or start only \
                         the django application with paver start_django."
@@ -389,12 +399,13 @@ def start_geoserver(options):
 
         try:
             sh(('java -version'))
-        except:
+        except BaseException:
             print "Java was not found in your path.  Trying some other options: "
             javapath_opt = None
             if os.environ.get('JAVA_HOME', None):
                 print "Using the JAVA_HOME environment variable"
-                javapath_opt = os.path.join(os.path.abspath(os.environ['JAVA_HOME']), "bin", "java.exe")
+                javapath_opt = os.path.join(os.path.abspath(
+                    os.environ['JAVA_HOME']), "bin", "java.exe")
             elif options.get('java_path'):
                 javapath_opt = options.get('java_path')
             else:
@@ -408,8 +419,10 @@ def start_geoserver(options):
         sh((
             '%(javapath)s -Xms512m -Xmx1024m -server -XX:+UseConcMarkSweepGC -XX:MaxPermSize=256m'
             ' -DGEOSERVER_DATA_DIR=%(data_dir)s'
+            # ' -Dgeofence.dir=%(geofence_dir)s'
+            # ' -Dgeofence-ovr=geofence-datasource-ovr.properties'
             # workaround for JAI sealed jar issue and jetty classloader
-            ' -Dorg.eclipse.jetty.server.webapp.parentLoaderPriority=true'
+            # ' -Dorg.eclipse.jetty.server.webapp.parentLoaderPriority=true'
             ' -jar %(jetty_runner)s'
             ' --port %(jetty_port)i'
             ' --log %(log_file)s'
