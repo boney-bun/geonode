@@ -398,7 +398,7 @@ def start_django():
     """
     Start the GeoNode Django application
     """
-    bind = options.get('bind', '')
+    bind = options.get('bind', '0.0.0.0:8000')
     foreground = '' if options.get('foreground', False) else '&'
     sh('python manage.py runserver %s %s' % (bind, foreground))
 
@@ -420,7 +420,12 @@ def start_geoserver(options):
     Start GeoServer with GeoNode extensions
     """
 
-    from geonode.settings import OGC_SERVER
+    from geonode.settings import OGC_SERVER, INSTALLED_APPS
+
+    # only start if using Geoserver backend
+    if 'geonode.geoserver' not in INSTALLED_APPS:
+        return
+
     GEOSERVER_BASE_URL = OGC_SERVER['default']['LOCATION']
     url = GEOSERVER_BASE_URL
 
@@ -510,8 +515,31 @@ def test(options):
     """
     Run GeoNode's Unit Test Suite
     """
-    sh("%s manage.py test %s.tests --noinput" % (options.get('prefix'),
-                                                 '.tests '.join(GEONODE_APPS)))
+    from geonode.settings import INSTALLED_APPS
+
+    success = False
+
+    if 'geonode.geoserver' in INSTALLED_APPS:
+        _reset()
+        # Start GeoServer
+        call_task('start_geoserver')
+        info("GeoNode is now available, running the tests now.")
+
+    try:
+        sh("%s manage.py test %s.tests --noinput --liveserver=0.0.0.0:8000" % (
+            options.get('prefix'), '.tests '.join(GEONODE_APPS)))
+    except BuildFailure as e:
+        info('Tests failed! %s' % str(e))
+    else:
+        success = True
+    finally:
+        if 'geonode.geoserver' in INSTALLED_APPS:
+            # don't use call task here - it won't run since it already has
+            stop()
+
+    _reset()
+    if not success:
+        sys.exit(1)
 
 
 @task
@@ -803,4 +831,5 @@ def justcopy(origin, target):
     elif os.path.isfile(origin):
         if not os.path.exists(target):
             os.makedirs(target)
+
         shutil.copy(origin, target)
