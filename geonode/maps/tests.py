@@ -442,7 +442,7 @@ community."
         # then, obtain the map using leaflet
         response = self.client.get(
             reverse(
-                'map_download_leaflet', args=(map_id,)))
+                'map_download_leaflet', kwargs={'mapid':map_id}))
 
         if check_ogc_backend(geoserver.BACKEND_PACKAGE):
             # download map leaflet hasn't supported in geoserver
