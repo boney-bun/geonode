@@ -325,20 +325,23 @@ class QGISServerViewsTest(LiveServerTestCase):
         json_payload = {
             "sources": {
                 "source_OpenMapSurfer Roads": {
-                    "url": "http://korona.geog.uni-heidelberg.de/tiles"
-                            "/roads/x={x}&y={y}&z={z}"
+                    "url":
+                        "http://korona.geog.uni-heidelberg.de/tiles"
+                        "/roads/x={x}&y={y}&z={z}"
                 },
                 "source_OpenStreetMap": {
                     "url": "http://{s}.tile.osm.org/{z}/{x}/{y}.png"
                 },
                 "source_san_andres_y_providencia_administrative": {
-                    "url": "http://geonode.dev/qgis-server/tiles"
-                            "/san_andres_y_providencia_administrative/"
-                            "{z}/{x}/{y}.png"
+                    "url":
+                        "http://geonode.dev/qgis-server/tiles"
+                        "/san_andres_y_providencia_administrative/"
+                        "{z}/{x}/{y}.png"
                 },
                 "source_relief_san_andres": {
-                    "url": "http://geonode.dev/qgis-server/tiles"
-                            "/relief_san_andres/{z}/{x}/{y}.png"
+                    "url":
+                        "http://geonode.dev/qgis-server/tiles"
+                        "/relief_san_andres/{z}/{x}/{y}.png"
                 }
             },
             "about": {
@@ -354,8 +357,9 @@ class QGISServerViewsTest(LiveServerTestCase):
                         "name": "OpenMapSurfer_Roads",
                         "title": "OpenMapSurfer Roads",
                         "visibility": True,
-                        "url": "http://korona.geog.uni-heidelberg.de/tiles/"
-                                "roads/x={x}&y={y}&z={z}",
+                        "url":
+                            "http://korona.geog.uni-heidelberg.de/tiles/"
+                            "roads/x={x}&y={y}&z={z}",
                         "group": "background",
                         "source": "source_OpenMapSurfer Roads"
                     },
@@ -368,22 +372,26 @@ class QGISServerViewsTest(LiveServerTestCase):
                         "source": "source_OpenStreetMap"
                     },
                     {
-                        "name": "geonode:"
-                                "san_andres_y_providencia_administrative",
+                        "name":
+                            "geonode:"
+                            "san_andres_y_providencia_administrative",
                         "title": "san_andres_y_providencia_administrative",
                         "visibility": True,
-                        "url": "http://geonode.dev/qgis-server/tiles"
-                                "/san_andres_y_providencia_administrative/"
-                                "{z}/{x}/{y}.png",
-                        "source": "source_"
-                                    "san_andres_y_providencia_administrative"
+                        "url":
+                            "http://geonode.dev/qgis-server/tiles"
+                            "/san_andres_y_providencia_administrative/"
+                            "{z}/{x}/{y}.png",
+                        "source":
+                            "source_"
+                            "san_andres_y_providencia_administrative"
                     },
                     {
                         "name": "geonode:relief_san_andres",
                         "title": "relief_san_andres",
                         "visibility": True,
-                        "url": "http://geonode.dev/qgis-server/tiles"
-                                "/relief_san_andres/{z}/{x}/{y}.png",
+                        "url":
+                            "http://geonode.dev/qgis-server/tiles"
+                            "/relief_san_andres/{z}/{x}/{y}.png",
                         "source": "source_relief_san_andres"
                     }
                 ]
