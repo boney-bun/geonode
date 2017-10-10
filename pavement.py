@@ -571,7 +571,7 @@ def test_integration(options):
             sh('sleep 30')
             call_task('setup_data')
         sh(('python manage.py test %s'
-            ' --noinput --liveserver=localhost:8000' % name))
+            ' --noinput --liveserver=0.0.0.0:8000' % name))
     except BuildFailure as e:
         info('Tests failed! %s' % str(e))
     else:
@@ -831,5 +831,4 @@ def justcopy(origin, target):
     elif os.path.isfile(origin):
         if not os.path.exists(target):
             os.makedirs(target)
-
         shutil.copy(origin, target)
