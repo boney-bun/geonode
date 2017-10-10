@@ -813,7 +813,7 @@ def map_download_check(request):
     return HttpResponse(content=content, status=status)
 
 
-def map_download_leaflet(request):
+def map_download_leaflet(request, mapid):
     """
     This function serves as geoserver compatibility.
     We might need to embed leaflet page on geoserver in the future.
