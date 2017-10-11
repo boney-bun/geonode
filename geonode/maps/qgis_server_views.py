@@ -54,6 +54,7 @@ elif check_ogc_backend(qgis_server.BACKEND_PACKAGE):
 
 logger = logging.getLogger("geonode.qgis_server.models")
 
+
 class MapCreateView(CreateView):
     model = Map
     fields = '__all__'
