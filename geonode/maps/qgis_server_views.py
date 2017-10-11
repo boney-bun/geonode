@@ -20,6 +20,7 @@
 import json
 import requests
 import math
+import logging
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
@@ -51,6 +52,7 @@ elif check_ogc_backend(qgis_server.BACKEND_PACKAGE):
     from geonode.qgis_server.helpers import ogc_server_settings
     from geonode.qgis_server.tasks.update import create_qgis_server_thumbnail
 
+logger = logging.getLogger("geonode.qgis_server.models")
 
 class MapCreateView(CreateView):
     model = Map
@@ -447,6 +449,7 @@ def set_thumbnail_map(request, mapid):
             layers[l.name] = l
         except Layer.DoesNotExist:
             msg = 'No Layer found for typename: {0}'.format(layer.name)
+            logger.debug(msg)
 
     if not layers:
         # The signal is called too early, or the map has no layer yet.
