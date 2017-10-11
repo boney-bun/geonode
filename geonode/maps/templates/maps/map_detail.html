@@ -103,8 +103,11 @@
               </div>
               <div class="modal-body">
                 <ul>
-                  <li><a href="{% url "map_download" resource.pk %}">{% trans "Download Data Layers" %}</a></li>
-                  <li><a href="{% url "map_wmc" resource.pk %}" target="_new">{% trans "Download Web Map Context" %}</a></li>
+                    {% if links %}
+                        {% for link in links %}
+                            <li><a href="{{ link.url }}">{{ link.name }}</a></li>
+                        {% endfor %}
+                    {% endif %}
                 <ul>
               </div>
               <div class="modal-footer">
@@ -222,7 +225,7 @@
                       <li>
                           <a href="javascript:$('#embed-iframe').modal()">Embed Iframe Link</a></li>
                       <li>
-                          <a href="#">Embed Widget Link</a></li>
+                          <a href="javascript:$('#embed-widget').modal()">Embed Widget Link</a></li>
                   </ul>
               </div>
           </li>
@@ -275,6 +278,40 @@
         </div>
     </div>
 
+        <div class="modal fade" id="embed-widget" tabindex="-1" role="dialog" aria-labelledby="Embed Widget"
+         aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                    <h4 class="modal-title" id="myModalLabel">{% trans "Embed Widget" %}</h4>
+                </div>
+                <div class="modal-body">
+                    <p>To embed this map, the first step is to import a library and a js function to the html's head section on your site:</p>
+                    <p style="font-weight: bold; font-size: small;">
+                    <p>&lt;script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"&gt;&lt;/script&gt;</p>
+                    <p>&lt;script type="text/javascript"&gt;</p>
+                    <ul style="list-style: none;">
+                        <li>$.get("{{ SITEURL|slice:":-1" }}{% url "map_embed" resource.id %}", function(data) {</li>
+                        <li>&nbsp;&nbsp;&nbsp;if(data) {</li>
+                        <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;$("#embed-map-link").html(data)</li>
+                        <li>&nbsp;&nbsp;&nbsp;}</li>
+                        <li>});</li>
+                    </ul>
+                    <p>&lt;/script&gt;</p>
+                    </p>
+
+                    <p>Finally, insert the div tag below into a location suits your need in the html's body</p>
+                    <p style="font-weight: bold;font-size: small;">
+                        &lt;div id="embed-map-link"&gt;&lt;/div&gt;
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">{% trans "Close" %}</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
   {% endblock %}
 

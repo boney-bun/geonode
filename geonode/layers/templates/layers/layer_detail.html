@@ -287,7 +287,12 @@
                     </div>
                 {% endif %}
                 {% if links_download %}
+                    {% if not links %}
+                    {#  if links doesn't exist, make this tab active by default #}
+                    <div class="tab-pane active" id="download_tab2">
+                    {% else %}
                     <div class="tab-pane" id="download_tab2">
+                    {% endif %}
                         <li>
                             <ul>
                               {% for link in links_download %}
@@ -602,6 +607,9 @@
         createMapThumbnail();
         $('#edit-layer').modal('toggle');
       });
+      {% if show_popup %}
+        $('#download-layer').modal('toggle');
+      {% endif %}
     </script>
     {% if GEONODE_SECURITY_ENABLED %}
     {% include "_permissions_form_js.html" %}

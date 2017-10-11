@@ -66,6 +66,7 @@
                     <div>
                         <ul id="layer-list">
                         </ul>
+                        <span id="hidden-layer-list"></span>
                     </div>
                     <h4>Background layers</h4>
                     <div>
@@ -224,7 +225,15 @@
             // Remove layer from map layer list
             remove("li_" + button.value);
             // Remove from list overlay layers
-            remove_from_list(all_layers, button.value);
+            // This statement seems to be bug, so being commented out
+            //remove_from_list(all_layers, button.value);
+            // Remove hidden layer
+            var hidden_layers = $("#hidden-layer-list > input");
+            hidden_layers.each(function() {
+                if (this.id == "hidden_" + button.value) {
+                    this.remove();
+                }
+            });
 
             // Show from available layer
             document.getElementById("option_" + button.value).style.display = 'block';
@@ -237,11 +246,16 @@
             }
         }
 
+        function compare_bounds(bound1, bound2) {
+            return [
+                Math.max(bound1[0], bound2[0]),
+                Math.min(bound1[1], bound2[1]),
+                Math.max(bound1[2], bound2[2]),
+                Math.min(bound1[3], bound2[3]) ]
+        }
+
         function add_layer(layer_typename, visibility, layer_order) {
             visibility = typeof visibility !== 'undefined' ? visibility : true;
-            if (layer_typename in all_layers) {
-                return
-            }
             if (layer_typename in all_layers) {
                 return
             }
@@ -261,12 +275,30 @@
                     var tile_layer = L.tileLayer(layer_url);
                     if (tile_layer != null) {
                         // Set view to new added layer
-                        zoom_to_box(map, [
-                            json['bbox_x0'],
-                            json['bbox_y0'],
-                            json['bbox_x1'],
-                            json['bbox_y1']
-                        ]);
+                        var bounds = [json['bbox_x0'], json['bbox_y0'],
+                            json['bbox_x1'], json['bbox_y1']];
+
+                        // Determine which extent should be used, only uses the widest one
+                        var hidden_layers = $("#hidden-layer-list > input");
+                        if(hidden_layers.length != 0) {
+                            temp_bounds = undefined;
+                            hidden_layers.each(function () {
+                                //temp_bounds has been determined from the previous loop
+                                if(temp_bounds != undefined) {
+                                    bounds = temp_bounds;
+                                }
+                                previous_bounds = $(this).val();
+                                //convert string to float
+                                previous_bounds = previous_bounds.split(",").map(function (elem) {
+                                        return parseFloat(elem);
+                                    });
+                                temp_bounds = compare_bounds(bounds, previous_bounds);
+                            });
+                            // The zoom value will determine how wide the layers will be shown
+                            map.setZoom(5);
+                            bounds = temp_bounds;
+                        }
+                        zoom_to_box(map, bounds);
 
                         // Add to list layer
                         if (visibility) {
@@ -287,6 +319,7 @@
                                     "</li>");
                         }
 
+                        $("#hidden-layer-list").html("<input type='hidden' id='hidden_"+ layer_typename +"' value='"+bounds+"' />");
 
                         // Add to memory
                         var added_layer = {};

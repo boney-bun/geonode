@@ -487,9 +487,10 @@ def qgs_url(layer, style=None, internal=True):
     """
     qgis_server_url = qgis_server_endpoint(internal)
 
-    ogc_url = reverse('qgis_server:layer-request',
-                      kwargs={'layername': layer.name})
-    url = settings.SITEURL + ogc_url.replace("/", "", 1)
+    url = requests.compat.urljoin(
+        settings.SITEURL,
+        reverse('qgis_server:layer-request',
+                kwargs={'layername': layer.name}))
 
     # for now, style always set to ''
     if not style:
@@ -533,9 +534,10 @@ def qlr_url(layer, style=None, internal=True):
     :rtype: str
     """
     qgis_server_url = qgis_server_endpoint(internal)
-    ogc_url = reverse('qgis_server:layer-request',
-                      kwargs={'layername': layer.name})
-    url = settings.SITEURL + ogc_url.replace("/", "", 1)
+    url = requests.compat.urljoin(
+        settings.SITEURL,
+        reverse('qgis_server:layer-request',
+                kwargs={'layername': layer.name}))
 
     # for now, style always set to ''
     if not style:

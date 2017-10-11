@@ -222,7 +222,7 @@ def qgis_server_post_save(instance, sender, **kwargs):
             'qgis_server:download-qgs',
             kwargs={'layername': instance.name}))
     logger.debug('qgs_download_url: %s' % ogc_qgs_url)
-    link_name = 'QGS Layer file'
+    link_name = 'QGIS project file (.qgs)'
     link_mime = 'application/xml'
     Link.objects.update_or_create(
         resource=instance.resourcebase_ptr,
@@ -263,7 +263,7 @@ def qgis_server_post_save(instance, sender, **kwargs):
             'qgis_server:download-qlr',
             kwargs={'layername': instance.name}))
     logger.debug('qlr_download_url: %s' % ogc_qlr_url)
-    link_name = 'QGIS Layer file'
+    link_name = 'QGIS layer file (.qlr)'
     link_mime = 'application/xml'
     Link.objects.update_or_create(
         resource=instance.resourcebase_ptr,
@@ -435,6 +435,65 @@ def qgis_server_post_save_map(instance, sender, **kwargs):
     if not layers:
         # The signal is called too early, or the map has no layer yet.
         return
+
+    base_url = settings.SITEURL
+    # download map
+    map_download_url = urljoin(
+        base_url,
+        reverse(
+            'map_download',
+            kwargs={'mapid': instance.id}))
+    logger.debug('map_download_url: %s' % map_download_url)
+    link_name = 'Download Data Layers'
+    Link.objects.update_or_create(
+        resource=instance.resourcebase_ptr,
+        name=link_name,
+        defaults=dict(
+            extension='html',
+            mime='text/html',
+            url=map_download_url,
+            link_type='data'
+        )
+    )
+    # WMC map layer workspace
+    ogc_wmc_url = urljoin(
+        base_url,
+        reverse(
+            'map_wmc',
+            kwargs={'mapid': instance.id}))
+    logger.debug('wmc_download_url: %s' % ogc_wmc_url)
+    link_name = 'Download Web Map Context'
+    link_mime = 'application/xml'
+    Link.objects.update_or_create(
+        resource=instance.resourcebase_ptr,
+        name=link_name,
+        defaults=dict(
+            extension='wmc.xml',
+            mime=link_mime,
+            url=ogc_wmc_url,
+            link_type='data'
+        )
+    )
+
+    # QLR map layer workspace
+    ogc_qlr_url = urljoin(
+        base_url,
+        reverse(
+            'map_download_qlr',
+            kwargs={'mapid': instance.id}))
+    logger.debug('qlr_map_download_url: %s' % ogc_qlr_url)
+    link_name = 'Download QLR Layer file'
+    link_mime = 'application/xml'
+    Link.objects.update_or_create(
+        resource=instance.resourcebase_ptr,
+        name=link_name,
+        defaults=dict(
+            extension='qlr',
+            mime=link_mime,
+            url=ogc_qlr_url,
+            link_type='data'
+        )
+    )
 
     # Set default bounding box based on all layers extents.
     bbox = instance.get_bbox_from_layers(instance.local_layers)
