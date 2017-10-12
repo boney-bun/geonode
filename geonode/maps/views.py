@@ -66,7 +66,6 @@ from geonode.utils import num_encode, num_decode
 from geonode.utils import build_social_links
 from geonode import geoserver, qgis_server
 import urlparse
-import requests
 from requests.compat import urljoin
 
 if check_ogc_backend(geoserver.BACKEND_PACKAGE):

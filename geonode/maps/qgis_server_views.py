@@ -25,7 +25,6 @@ from django.conf import settings
 from django.views.generic import CreateView, DetailView, UpdateView
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.serializers.json import DjangoJSONEncoder
-from django.views.generic import CreateView, DetailView
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.utils.decorators import method_decorator
 from django.core.urlresolvers import reverse
@@ -436,11 +435,6 @@ class MapUpdateView(UpdateView):
                                mapid,
                                'base.view_resourcebase',
                                _PERMISSION_MSG_VIEW)
-
-        if 'access_token' in request.session:
-            access_token = request.session['access_token']
-        else:
-            access_token = None
 
         if request.method == 'POST':
             if not request.user.is_authenticated():

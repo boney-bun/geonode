@@ -41,7 +41,6 @@ from django.shortcuts import get_object_or_404
 from django.template.response import TemplateResponse
 from django.utils.translation import ugettext as _
 
-from geonode.utils import resolve_object
 from geonode.maps.models import MapLayer
 from geonode.layers.models import Layer, LayerFile
 from geonode.qgis_server.forms import QGISLayerStyleUploadForm
