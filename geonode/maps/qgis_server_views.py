@@ -582,7 +582,8 @@ def map_download_leaflet(request, mapid,
 
     context = {
         'resource': map_obj,
-        'map_layers': layers
+        'map_layers': layers,
+        'for_download': True
     }
 
     the_page = render_to_response(template,
@@ -591,8 +592,8 @@ def map_download_leaflet(request, mapid,
     response = HttpResponse(
         the_page.content, content_type="html",
         status=the_page.status_code)
-    response['Content-Disposition'] = 'attachment; filename=%s' \
-                                      % map_obj.title + '.html'
+    response['Content-Disposition'] = 'attachment; filename=%s.html' \
+                                      % (map_obj.title,)
 
     return response
 
