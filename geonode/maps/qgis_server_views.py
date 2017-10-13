@@ -546,10 +546,11 @@ def map_download_qlr(request, mapid):
         + '?SERVICE=LAYERDEFINITIONS&LAYERS=' + json_layers
     fwd_request = requests.get(url_server)
     response = HttpResponse(
-        fwd_request.content, content_type="application/xml",
+        fwd_request.content,
+        content_type="application/x-qgis-layer-definition",
         status=fwd_request.status_code)
-    response['Content-Disposition'] = 'attachment; filename=%s' \
-                                      % map_obj.title + '.qlr'
+    response['Content-Disposition'] = 'attachment; filename=%s.qlr' \
+                                      % map_obj.title
 
     return response
 

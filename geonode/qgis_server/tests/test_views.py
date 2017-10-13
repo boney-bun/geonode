@@ -138,23 +138,35 @@ class QGISServerViewsTest(LiveServerTestCase):
         links = uploaded.link_set.download().filter(
             name__in=settings.DOWNLOAD_FORMATS_RASTER)
 
-        for link in links:
-            if "download-qlr" in link.url:
-                self.assertTrue("download-qlr" in link.url)
-            if "download-qgs" in link.url:
-                self.assertTrue("download-qgs" in link.url)
+        # checks signals.py for the hardcoded names in QLR and QGS
+        qlr_link = links.get(name='QGIS layer file (.qlr)')
+        self.assertIn("download-qlr", qlr_link.url)
+        qgs_link = links.get(name='QGIS project file (.qgs)')
+        self.assertIn("download-qgs", qgs_link.url)
 
         # QLR
         response = self.client.get(
             reverse('qgis_server:download-qlr', kwargs=params))
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.get('Content-Type'), 'application/xml')
+        self.assertEqual(
+            response.get('Content-Type'),
+            'application/x-qgis-layer-definition')
+        # check file name's extension
+        file_name = response.get('Content-Disposition').split('filename=')
+        file_ext = file_name[1].split('.')
+        self.assertEqual(file_ext[1], "qlr")
 
         # QGS
         response = self.client.get(
             reverse('qgis_server:download-qgs', kwargs=params))
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.get('Content-Type'), 'application/xml')
+        self.assertEqual(
+            response.get('Content-Type'),
+            'application/x-qgis-project')
+        # check file name's extension
+        file_name = response.get('Content-Disposition').split('filename=')
+        file_ext = file_name[1].split('.')
+        self.assertEqual(file_ext[1], "qgs")
 
         response = self.client.get(
             reverse('qgis_server:geotiff', kwargs={
@@ -322,81 +334,7 @@ class QGISServerViewsTest(LiveServerTestCase):
         layer2 = file_upload(filename)
 
         # construct json request for new map
-        json_payload = {
-            "sources": {
-                "source_OpenMapSurfer Roads": {
-                    "url":
-                        "http://korona.geog.uni-heidelberg.de/tiles"
-                        "/roads/x={x}&y={y}&z={z}"
-                },
-                "source_OpenStreetMap": {
-                    "url": "http://{s}.tile.osm.org/{z}/{x}/{y}.png"
-                },
-                "source_san_andres_y_providencia_administrative": {
-                    "url":
-                        "http://geonode.dev/qgis-server/tiles"
-                        "/san_andres_y_providencia_administrative/"
-                        "{z}/{x}/{y}.png"
-                },
-                "source_relief_san_andres": {
-                    "url":
-                        "http://geonode.dev/qgis-server/tiles"
-                        "/relief_san_andres/{z}/{x}/{y}.png"
-                }
-            },
-            "about": {
-                "title": "San Andreas",
-                "abstract": "San Andreas sample map"
-            },
-            "map": {
-                "center": [12.91890657418042, -81.298828125],
-                "zoom": 6,
-                "projection": "",
-                "layers": [
-                    {
-                        "name": "OpenMapSurfer_Roads",
-                        "title": "OpenMapSurfer Roads",
-                        "visibility": True,
-                        "url":
-                            "http://korona.geog.uni-heidelberg.de/tiles/"
-                            "roads/x={x}&y={y}&z={z}",
-                        "group": "background",
-                        "source": "source_OpenMapSurfer Roads"
-                    },
-                    {
-                        "name": "osm",
-                        "title": "OpenStreetMap",
-                        "visibility": False,
-                        "url": "http://{s}.tile.osm.org/{z}/{x}/{y}.png",
-                        "group": "background",
-                        "source": "source_OpenStreetMap"
-                    },
-                    {
-                        "name":
-                            "geonode:"
-                            "san_andres_y_providencia_administrative",
-                        "title": "san_andres_y_providencia_administrative",
-                        "visibility": True,
-                        "url":
-                            "http://geonode.dev/qgis-server/tiles"
-                            "/san_andres_y_providencia_administrative/"
-                            "{z}/{x}/{y}.png",
-                        "source":
-                            "source_"
-                            "san_andres_y_providencia_administrative"
-                    },
-                    {
-                        "name": "geonode:relief_san_andres",
-                        "title": "relief_san_andres",
-                        "visibility": True,
-                        "url":
-                            "http://geonode.dev/qgis-server/tiles"
-                            "/relief_san_andres/{z}/{x}/{y}.png",
-                        "source": "source_relief_san_andres"
-                    }
-                ]
-            }
-        }
+        json_payload = InitialSetup.generate_initial_map(layer1, layer2)
 
         self.client.login(username='admin', password='admin')
 
@@ -413,15 +351,16 @@ class QGISServerViewsTest(LiveServerTestCase):
 
         # check that QLR is added to the links
         links = map.link_set.download()
-        for link in links:
-            if 'download-qlr' in link.url:
-                self.assertIn('download-qlr', link.url)
+        map_qlr_link = links.get(name='Download QLR Layer file')
+        self.assertIn('qlr', map_qlr_link.url)
 
         # QLR
         response = self.client.get(
             reverse('map_download_qlr', kwargs={'mapid': map_id}))
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.get('Content-Type'), 'application/xml')
+        self.assertEqual(
+            response.get('Content-Type'),
+            'application/x-qgis-layer-definition')
 
         # cleanup
         map.delete()
@@ -429,7 +368,17 @@ class QGISServerViewsTest(LiveServerTestCase):
         layer2.delete()
 
     def test_map_json(self):
-        json_payload = InitialSetup.generate_initial_map()
+        # 2 layers to be added to the map
+        filename = os.path.join(
+            gisdata.GOOD_DATA, 'raster/relief_san_andres.tif')
+        layer1 = file_upload(filename)
+
+        filename = os.path.join(
+            gisdata.GOOD_DATA,
+            'vector/san_andres_y_providencia_administrative.shp')
+        layer2 = file_upload(filename)
+
+        json_payload = InitialSetup.generate_initial_map(layer1, layer2)
         # First, create a map with two layers
         # Need to log in for saving a map
         self.client.login(username='admin', password='admin')
@@ -464,6 +413,8 @@ class QGISServerViewsTest(LiveServerTestCase):
         # clean up
         map = Map.objects.get(id=map_id)
         map.delete()
+        layer1.delete()
+        layer2.delete()
 
 
 class QGISServerStyleManagerTest(LiveServerTestCase):
@@ -650,7 +601,7 @@ class ThumbnailGenerationTest(LiveServerTestCase):
         """:type: geonode.layers.models.Layer"""
 
         # construct json request for new map
-        json_payload = InitialSetup.generate_initial_map()
+        json_payload = InitialSetup.generate_initial_map(layer1, layer2)
 
         self.client.login(username='admin', password='admin')
 
@@ -714,7 +665,7 @@ class ThumbnailGenerationTest(LiveServerTestCase):
 class InitialSetup():
 
     @classmethod
-    def generate_initial_map(cls):
+    def generate_initial_map(cls, layer1, layer2):
         # construct json request for new map
         json_payload = {
             "sources": {
@@ -762,9 +713,8 @@ class InitialSetup():
                         "source": "source_OpenStreetMap"
                     },
                     {
-                        "name": "geonode:"
-                                "san_andres_y_providencia_administrative",
-                        "title": "san_andres_y_providencia_administrative",
+                        "name": layer2.typename,
+                        "title": layer2.name,
                         "visibility": True,
                         "url": "http://geonode.dev/qgis-server/tiles"
                                "/san_andres_y_providencia_administrative/"
@@ -773,8 +723,8 @@ class InitialSetup():
                                   "san_andres_y_providencia_administrative"
                     },
                     {
-                        "name": "geonode:relief_san_andres",
-                        "title": "relief_san_andres",
+                        "name": layer1.typename,
+                        "title": layer1.name,
                         "visibility": True,
                         "url": "http://geonode.dev/qgis-server/tiles"
                                "/relief_san_andres/{z}/{x}/{y}.png",

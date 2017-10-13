@@ -131,7 +131,7 @@ def download_qgs(request, layername):
         layer_title = layer.name
 
     response = HttpResponse(
-        result.content, content_type="application/xml",
+        result.content, content_type="application/x-qgis-project",
         status=result.status_code)
     response['Content-Disposition'] = \
         'attachment; filename=%s.qgs' % layer_title
@@ -847,7 +847,7 @@ def download_qlr(request, layername):
     result = requests.get(url)
     response = HttpResponse(
         result.content,
-        content_type="application/xml",
+        content_type="application/x-qgis-layer-definition",
         status=result.status_code)
     response['Content-Disposition'] = \
         'attachment; filename=%s.qlr' % layer_title
