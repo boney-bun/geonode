@@ -25,6 +25,7 @@ from guardian.shortcuts import get_perms
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.urlresolvers import reverse
+from django.shortcuts import redirect
 from django.core.serializers.json import DjangoJSONEncoder
 from django.http import HttpResponse, HttpResponseRedirect, HttpResponseNotAllowed, HttpResponseServerError
 from django.http.response import HttpResponseBadRequest
@@ -65,6 +66,7 @@ from geonode.utils import num_encode, num_decode
 from geonode.utils import build_social_links
 from geonode import geoserver, qgis_server
 import urlparse
+from requests.compat import urljoin
 
 if check_ogc_backend(geoserver.BACKEND_PACKAGE):
     # FIXME: The post service providing the map_status object
@@ -725,7 +727,6 @@ def map_download(request, mapid, template='maps/map_download.html'):
 
     map_status = dict()
     if request.method == 'POST':
-        url = "%srest/process/batchDownload/launch/" % ogc_server_settings.LOCATION
 
         def perm_filter(layer):
             return request.user.has_perm(
@@ -741,11 +742,21 @@ def map_download(request, mapid, template='maps/map_download.html'):
             if j_layer["service"] is None:
                 j_layers.remove(j_layer)
                 continue
-            if(len([l for l in j_layers if l == j_layer])) > 1:
+            if (len([l for l in j_layers if l == j_layer])) > 1:
                 j_layers.remove(j_layer)
         mapJson = json.dumps(j_map)
 
-        resp, content = http_client.request(url, 'POST', body=mapJson)
+        if 'geonode.geoserver' in settings.INSTALLED_APPS:
+            # TODO the url needs to be verified on geoserver
+            url = "%srest/process/batchDownload/launch/" % ogc_server_settings.LOCATION
+        elif 'geonode.qgis_server' in settings.INSTALLED_APPS:
+            url = urljoin(settings.SITEURL,
+                          reverse("qgis_server:download-map", kwargs={'mapid': mapid}))
+            # qgis-server backend stop here, continue on qgis_server/views.py
+            return redirect(url)
+
+        # the path to geoserver backend continue here
+        resp, content = http_client.request(url, 'POST', layers=mapJson)
 
         status = int(resp.status)
 

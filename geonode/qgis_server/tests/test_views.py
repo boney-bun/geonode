@@ -285,6 +285,44 @@ class QGISServerViewsTest(LiveServerTestCase):
         uploaded.delete()
         vector_layer.delete()
 
+    @on_ogc_backend(qgis_server.BACKEND_PACKAGE)
+    def test_map_json(self):
+        json_payload = InitialSetup.generate_initial_map()
+        # First, create a map with two layers
+        # Need to log in for saving a map
+        self.client.login(username='admin', password='admin')
+
+        result_new_map = self.client.post(
+            reverse('new_map_json'),
+            json.dumps(json_payload),
+            content_type='application/json')
+        # the new map is successfully saved
+        self.assertEqual(result_new_map.status_code, 200)
+
+        map_id = json.loads(result_new_map.content).get('id')
+        # try to remove one layer
+        layers = json_payload['map']['layers']
+        before_remove = len(layers)
+        after_remove = before_remove - 1
+        layer = layers[0]
+        layers.remove(layer)
+
+        # check if the layer is eliminated from the map
+        result_update_map = self.client.post(
+            reverse('map_json', kwargs={'mapid': map_id}),
+            data=json.dumps(json_payload),
+            content_type='application/json')
+        # successfully updated
+        self.assertEqual(result_update_map.status_code, 200)
+        # the number of layers on the map decrease by 1
+        self.assertEqual(
+            len(result_update_map.context_data['map'].layers),
+            after_remove)
+
+        # clean up
+        map = Map.objects.get(id=map_id)
+        map.delete()
+
 
 class QGISServerStyleManagerTest(LiveServerTestCase):
 
@@ -470,6 +508,72 @@ class ThumbnailGenerationTest(LiveServerTestCase):
         """:type: geonode.layers.models.Layer"""
 
         # construct json request for new map
+        json_payload = InitialSetup.generate_initial_map()
+
+        self.client.login(username='admin', password='admin')
+
+        response = self.client.post(
+            reverse('new_map_json'),
+            json.dumps(json_payload),
+            content_type='application/json')
+
+        self.assertEqual(response.status_code, 200)
+
+        map_id = json.loads(response.content).get('id')
+
+        map = Map.objects.get(id=map_id)
+
+        # check that we have remote thumbnail
+        remote_thumbnail_link = map.link_set.get(
+            name__icontains='remote thumbnail')
+        self.assertTrue(remote_thumbnail_link.url)
+
+        # thumbnail won't generate because remote thumbnail uses public
+        # address
+
+        remote_thumbnail_url = remote_thumbnail_link.url
+
+        # Replace url's basename, we want to access it using django client
+        parse_result = urlparse.urlsplit(remote_thumbnail_url)
+        remote_thumbnail_url = urlparse.urlunsplit(
+            ('', '', parse_result.path, parse_result.query, ''))
+
+        response = self.client.get(remote_thumbnail_url)
+
+        thumbnail_dir = os.path.join(settings.MEDIA_ROOT, 'thumbs')
+        thumbnail_path = os.path.join(thumbnail_dir, 'map-thumb.png')
+
+        map.save_thumbnail(thumbnail_path, response.content)
+
+        # Check thumbnail created
+        self.assertTrue(os.path.exists(thumbnail_path))
+        self.assertEqual(what(thumbnail_path), 'png')
+
+        # Check that now we have thumbnail
+        self.assertTrue(map.has_thumbnail())
+
+        missing_thumbnail_url = staticfiles.static(settings.MISSING_THUMBNAIL)
+
+        self.assertTrue(map.get_thumbnail_url() != missing_thumbnail_url)
+
+        thumbnail_links = map.link_set.filter(name__icontains='thumbnail')
+        self.assertTrue(len(thumbnail_links) > 0)
+
+        link_names = ['remote thumbnail', 'thumbnail']
+        for link in thumbnail_links:
+            self.assertIn(link.name.lower(), link_names)
+
+        # cleanup
+        map.delete()
+        layer1.delete()
+        layer2.delete()
+
+
+class InitialSetup():
+
+    @classmethod
+    def generate_initial_map(cls):
+        # construct json request for new map
         json_payload = {
             "sources": {
                 "source_OpenMapSurfer Roads": {
@@ -538,60 +642,4 @@ class ThumbnailGenerationTest(LiveServerTestCase):
             }
         }
 
-        self.client.login(username='admin', password='admin')
-
-        response = self.client.post(
-            reverse('new_map_json'),
-            json.dumps(json_payload),
-            content_type='application/json')
-
-        self.assertEqual(response.status_code, 200)
-
-        map_id = json.loads(response.content).get('id')
-
-        map = Map.objects.get(id=map_id)
-
-        # check that we have remote thumbnail
-        remote_thumbnail_link = map.link_set.get(
-            name__icontains='remote thumbnail')
-        self.assertTrue(remote_thumbnail_link.url)
-
-        # thumbnail won't generate because remote thumbnail uses public
-        # address
-
-        remote_thumbnail_url = remote_thumbnail_link.url
-
-        # Replace url's basename, we want to access it using django client
-        parse_result = urlparse.urlsplit(remote_thumbnail_url)
-        remote_thumbnail_url = urlparse.urlunsplit(
-            ('', '', parse_result.path, parse_result.query, ''))
-
-        response = self.client.get(remote_thumbnail_url)
-
-        thumbnail_dir = os.path.join(settings.MEDIA_ROOT, 'thumbs')
-        thumbnail_path = os.path.join(thumbnail_dir, 'map-thumb.png')
-
-        map.save_thumbnail(thumbnail_path, response.content)
-
-        # Check thumbnail created
-        self.assertTrue(os.path.exists(thumbnail_path))
-        self.assertEqual(what(thumbnail_path), 'png')
-
-        # Check that now we have thumbnail
-        self.assertTrue(map.has_thumbnail())
-
-        missing_thumbnail_url = staticfiles.static(settings.MISSING_THUMBNAIL)
-
-        self.assertTrue(map.get_thumbnail_url() != missing_thumbnail_url)
-
-        thumbnail_links = map.link_set.filter(name__icontains='thumbnail')
-        self.assertTrue(len(thumbnail_links) > 0)
-
-        link_names = ['remote thumbnail', 'thumbnail']
-        for link in thumbnail_links:
-            self.assertIn(link.name.lower(), link_names)
-
-        # cleanup
-        map.delete()
-        layer1.delete()
-        layer2.delete()
+        return json_payload
