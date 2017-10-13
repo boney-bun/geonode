@@ -31,6 +31,7 @@ from agon_ratings.models import OverallRating
 from django.contrib.auth import get_user_model
 from django.conf import settings
 
+from geonode.decorators import on_ogc_backend
 from geonode.layers.models import Layer
 from geonode.maps.models import Map
 from geonode.maps.utils import fix_baselayers
@@ -135,6 +136,7 @@ community."
                 "view_resourcebase"]},
         "groups": {}}
 
+    @on_ogc_backend(geoserver.BACKEND_PACKAGE)
     def test_map_json(self):
         # Test that saving a map when not logged in gives 401
         response = self.client.put(
@@ -202,6 +204,7 @@ community."
         self.assertEquals(response.status_code, 400)
         self.client.logout()
 
+    @on_ogc_backend(geoserver.BACKEND_PACKAGE)
     def test_map_fetch(self):
         """/maps/[id]/data -> Test fetching a map in JSON"""
         map_obj = Map.objects.get(id=1)

@@ -41,6 +41,7 @@ from django.shortcuts import get_object_or_404
 from django.template.response import TemplateResponse
 from django.utils.translation import ugettext as _
 
+from geonode.maps.models import MapLayer
 from geonode.layers.models import Layer, LayerFile
 from geonode.qgis_server.forms import QGISLayerStyleUploadForm
 from geonode.qgis_server.helpers import (
@@ -111,8 +112,8 @@ def download_zip(request, layername):
 def download_qgs(request, layername):
     """Download QGS file for a layer.
 
-    :param layername: The request from frontend.
-    :type layername: HttpRequest
+    :param request: The request from frontend.
+    :type request: HttpRequest
 
     :param layername: The layer name in Geonode.
     :type layername: basestring
@@ -136,6 +137,58 @@ def download_qgs(request, layername):
         'attachment; filename=%s.qgs' % layer_title
 
     return response
+
+
+def download_map(request, mapid):
+    """Download a zip file containing every layers on a map.
+
+    :param mapid: The map id in Geonode.
+    :type mapid: basestring
+
+    :return: The HTTPResponse with a ZIP.
+    """
+    map_layers = MapLayer.objects.filter(
+        map_id=mapid).order_by('stack_order')
+    # Folder name in ZIP archive which contains the above files
+    # E.g [thearchive.zip]/somefiles/file2.txt
+    zip_subdir = mapid
+    zip_filename = "%s.zip" % zip_subdir
+
+    # Open StringIO to grab in-memory ZIP contents
+    s = StringIO.StringIO()
+
+    # The zip compressor
+    zf = zipfile.ZipFile(s, "w")
+
+    for map_layer in map_layers:
+        if 'osm' not in map_layer.layer_title and 'OpenMap' not in map_layer.layer_title:
+            layer = get_object_or_404(Layer, name=map_layer.layer_title)
+            qgis_layer = get_object_or_404(QGISServerLayer, layer=layer)
+            # Files (local path) to put in the .zip
+            filenames = qgis_layer.files
+            # Exclude qgis project files, because it contains server specific path
+            filenames = [f for f in filenames if f.endswith('.asc') or
+                         f.endswith('.shp') or f.endswith('.tif')]
+
+            for fpath in filenames:
+                # Calculate path for file in zip
+                fdir, fname = os.path.split(fpath)
+
+                zip_path = os.path.join(zip_subdir, fname)
+
+                # Add file, at correct path
+                zf.write(fpath, zip_path)
+
+    # Must close zip for all contents to be written
+    zf.close()
+
+    # Grab ZIP file from in-memory, make response with correct MIME-type
+    resp = HttpResponse(
+        s.getvalue(), content_type="application/x-zip-compressed")
+    # ..and correct content-disposition
+    resp['Content-Disposition'] = 'attachment; filename=%s' % zip_filename
+
+    return resp
 
 
 def legend(request, layername, layertitle=False, style=None):
