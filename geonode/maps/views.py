@@ -832,7 +832,7 @@ def map_download_leaflet(request, mapid):
     return HttpResponseBadRequest('Sorry, leaflet page has not supported yet')
 
 
-def map_download_qlr(request):
+def map_download_qlr(request, mapid):
     """
     This function serves as geoserver compatibility.
     We might need to use QLR on geoserver in the future.
