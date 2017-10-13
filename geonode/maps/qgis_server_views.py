@@ -52,7 +52,7 @@ elif check_ogc_backend(qgis_server.BACKEND_PACKAGE):
     from geonode.qgis_server.helpers import ogc_server_settings
     from geonode.qgis_server.tasks.update import create_qgis_server_thumbnail
 
-logger = logging.getLogger("geonode.qgis_server.models")
+logger = logging.getLogger("geonode.maps.qgis_server_views")
 
 
 class MapCreateView(CreateView):
