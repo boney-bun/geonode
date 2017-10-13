@@ -596,6 +596,7 @@ def map_download_leaflet(request, mapid,
 
     return response
 
+
 def set_thumbnail_map(request, mapid):
     """Update thumbnail based on map extent
 
