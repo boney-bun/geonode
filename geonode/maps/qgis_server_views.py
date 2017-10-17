@@ -20,15 +20,18 @@
 import json
 import requests
 import math
+import logging
 
 from django.conf import settings
+from django.views.generic import CreateView, DetailView, UpdateView
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.serializers.json import DjangoJSONEncoder
-from django.views.generic import CreateView, DetailView
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.utils.decorators import method_decorator
 from django.core.urlresolvers import reverse
 from django.http import HttpResponse
+from django.shortcuts import render_to_response
+from django.template import RequestContext
 
 from geonode.maps.views import _resolve_map, _PERMISSION_MSG_VIEW, \
     snapshot_config, _resolve_layer
@@ -49,6 +52,9 @@ if check_ogc_backend(geoserver.BACKEND_PACKAGE):
 
 elif check_ogc_backend(qgis_server.BACKEND_PACKAGE):
     from geonode.qgis_server.helpers import ogc_server_settings
+    from geonode.qgis_server.tasks.update import create_qgis_server_thumbnail
+
+logger = logging.getLogger("geonode.maps.qgis_server_views")
 
 
 class MapCreateView(CreateView):
@@ -309,53 +315,180 @@ class MapDetailView(DetailView):
 
 
 class MapEmbedView(DetailView):
-        model = Map
-        template_name = 'leaflet_maps/map_detail.html'
-        context_object_name = 'map'
+    model = Map
+    template_name = 'leaflet_maps/map_detail.html'
+    context_object_name = 'map'
 
-        def get_context_data(self, **kwargs):
-            """Prepare context data."""
+    def get_context_data(self, **kwargs):
+        """Prepare context data."""
 
-            mapid = self.kwargs.get('mapid')
-            snapshot = self.kwargs.get('snapshot')
-            request = self.request
+        mapid = self.kwargs.get('mapid')
+        snapshot = self.kwargs.get('snapshot')
+        request = self.request
 
-            map_obj = _resolve_map(
-                request, mapid, 'base.view_resourcebase', _PERMISSION_MSG_VIEW)
+        map_obj = _resolve_map(
+            request, mapid, 'base.view_resourcebase', _PERMISSION_MSG_VIEW)
 
-            if 'access_token' in request.session:
-                access_token = request.session['access_token']
-            else:
-                access_token = None
+        if 'access_token' in request.session:
+            access_token = request.session['access_token']
+        else:
+            access_token = None
 
-            if snapshot is None:
-                config = map_obj.viewer_json(request.user, access_token)
-            else:
-                config = snapshot_config(snapshot, map_obj, request.user,
+        if snapshot is None:
+            config = map_obj.viewer_json(request.user, access_token)
+        else:
+            config = snapshot_config(snapshot, map_obj, request.user,
+                                     access_token)
+        # list all required layers
+        layers = Layer.objects.all()
+        map_layers = MapLayer.objects.filter(
+            map_id=mapid).order_by('stack_order')
+        context = {
+            'config': json.dumps(config),
+            'create': False,
+            'layers': layers,
+            'resource': map_obj,
+            'map_layers': map_layers,
+            'preview': getattr(
+                settings,
+                'LAYER_PREVIEW_LIBRARY',
+                '')
+        }
+        return context
+
+    def get_object(self):
+        return Map.objects.get(id=self.kwargs.get("mapid"))
+
+    @method_decorator(xframe_options_exempt)
+    def dispatch(self, *args, **kwargs):
+        return super(MapEmbedView, self).dispatch(*args, **kwargs)
+
+
+class MapEditView(UpdateView):
+    model = Map
+    fields = '__all__'
+    template_name = 'leaflet_maps/map_edit.html'
+    context_object_name = 'map'
+
+    def get_context_data(self, **kwargs):
+        # list all required layers
+        mapid = self.kwargs.get('mapid')
+        snapshot = self.kwargs.get('snapshot')
+        request = self.request
+        map_obj = _resolve_map(request,
+                               mapid,
+                               'base.view_resourcebase',
+                               _PERMISSION_MSG_VIEW)
+
+        if 'access_token' in request.session:
+            access_token = request.session['access_token']
+        else:
+            access_token = None
+
+        if snapshot is None:
+            config = map_obj.viewer_json(request.user,
                                          access_token)
-            # list all required layers
-            layers = Layer.objects.all()
-            map_layers = MapLayer.objects.filter(
-                map_id=mapid).order_by('stack_order')
-            context = {
-                'config': json.dumps(config),
-                'create': False,
-                'layers': layers,
-                'resource': map_obj,
-                'map_layers': map_layers,
-                'preview': getattr(
-                    settings,
-                    'LAYER_PREVIEW_LIBRARY',
-                    '')
-            }
-            return context
+        else:
+            config = snapshot_config(snapshot,
+                                     map_obj,
+                                     request.user,
+                                     access_token)
 
-        def get_object(self):
-            return Map.objects.get(id=self.kwargs.get("mapid"))
+        layers = Layer.objects.all()
+        map_layers = MapLayer.objects.filter(
+            map_id=mapid).order_by('stack_order')
 
-        @method_decorator(xframe_options_exempt)
-        def dispatch(self, *args, **kwargs):
-            return super(MapEmbedView, self).dispatch(*args, **kwargs)
+        context = {
+            'create': False,
+            'config': json.dumps(config),
+            'layers': layers,
+            'map_layers': map_layers,
+            'map': map_obj,
+            'preview': getattr(
+                settings,
+                'LAYER_PREVIEW_LIBRARY',
+                '')
+        }
+        return context
+
+    def get(self, request, **kwargs):
+        self.object = Map.objects.get(
+            id=self.kwargs.get('mapid'))
+        form_class = self.get_form_class()
+        form = self.get_form(form_class)
+        context = self.get_context_data(
+            object=self.object, form=form)
+        return self.render_to_response(context)
+
+    def get_success_url(self):
+        pass
+
+    def get_form_kwargs(self):
+        kwargs = super(MapEditView, self).get_form_kwargs()
+        return kwargs
+
+
+class MapUpdateView(UpdateView):
+    model = Map
+    fields = '__all__'
+    template_name = 'leaflet_maps/map_edit.html'
+    context_object_name = 'map'
+
+    def get_context_data(self, **kwargs):
+        mapid = self.kwargs.get('mapid')
+        request = self.request
+        map_obj = _resolve_map(request,
+                               mapid,
+                               'base.view_resourcebase',
+                               _PERMISSION_MSG_VIEW)
+
+        if request.method == 'POST':
+            if not request.user.is_authenticated():
+                return self.render_to_response(
+                    'You must be logged in to save new maps',
+                    content_type="text/plain",
+                    status=401
+                )
+
+            map_obj.save()
+            map_obj.set_default_permissions()
+            map_obj.handle_moderated_uploads()
+            # If the body has been read already, use an empty string.
+            # See https://github.com/django/django/commit/58d555caf527d6f1bdfeab14527484e4cca68648
+            # for a better exception to catch when we move to Django 1.7.
+            try:
+                body = request.body
+            except Exception:
+                body = ''
+
+            try:
+                map_obj.update_from_viewer(body)
+            except ValueError as e:
+                return self.render_to_response(str(e), status=400)
+            else:
+                context = {
+                    'create': False,
+                    'status': 200,
+                    'map': map_obj,
+                    'content_type': 'application/json'
+                }
+                return context
+        else:
+            return self.render_to_response(status=405)
+
+    def get(self, request, **kwargs):
+        self.object = Map.objects.get(
+            id=self.kwargs.get('mapid'))
+        form_class = self.get_form_class()
+        form = self.get_form(form_class)
+        context = self.get_context_data(object=self.object,
+                                        form=form)
+        return self.render_to_response(context)
+
+    def get_object(self, queryset=None):
+        obj = Map.objects.get(
+            id=self.kwargs.get('mapid'))
+        return obj
 
 
 def map_download_qlr(request, mapid):
@@ -415,9 +548,111 @@ def map_download_qlr(request, mapid):
         + '?SERVICE=LAYERDEFINITIONS&LAYERS=' + json_layers
     fwd_request = requests.get(url_server)
     response = HttpResponse(
-        fwd_request.content, content_type="application/xml",
+        fwd_request.content,
+        content_type="application/x-qgis-layer-definition",
         status=fwd_request.status_code)
-    response['Content-Disposition'] = 'attachment; filename=%s' \
-                                      % map_obj.title + '.qlr'
+    response['Content-Disposition'] = 'attachment; filename=%s.qlr' \
+                                      % map_obj.title
 
     return response
+
+
+def map_download_leaflet(request, mapid,
+                         template='leaflet_maps/map_embed.html'):
+    """Download leaflet map as static HTML.
+
+    :param request: The request from the frontend.
+    :type request: HttpRequest
+
+    :param mapid: The id of the map.
+    :type mapid: String
+
+    :return: HTML file.
+    """
+
+    map_obj = _resolve_map(request,
+                           mapid,
+                           'base.view_resourcebase',
+                           _PERMISSION_MSG_VIEW)
+    map_layers = MapLayer.objects.filter(
+        map_id=mapid).order_by('stack_order')
+    layers = []
+    for layer in map_layers:
+        if layer.group != 'background':
+            layers.append(layer)
+
+    context = {
+        'resource': map_obj,
+        'map_layers': layers,
+        'for_download': True
+    }
+
+    the_page = render_to_response(template,
+                                  RequestContext(request, context))
+
+    response = HttpResponse(
+        the_page.content, content_type="html",
+        status=the_page.status_code)
+    response['Content-Disposition'] = 'attachment; filename=%s.html' \
+                                      % (map_obj.title,)
+
+    return response
+
+
+def set_thumbnail_map(request, mapid):
+    """Update thumbnail based on map extent
+
+    :param layername: The layer name in Geonode.
+    :type layername: basestring
+
+    :return success: true if success, None if fail.
+    :type success: bool
+    """
+    if request.method != 'POST':
+        return HttpResponse('Bad Request')
+
+    map_layers = MapLayer.objects.filter(map__id=mapid)
+    local_layers = [l for l in map_layers if l.local]
+
+    layers = {}
+    for layer in local_layers:
+        try:
+            l = Layer.objects.get(typename=layer.name)
+
+            layers[l.name] = l
+        except Layer.DoesNotExist:
+            msg = 'No Layer found for typename: {0}'.format(layer.name)
+            logger.debug(msg)
+
+    if not layers:
+        # The signal is called too early, or the map has no layer yet.
+        return
+
+    bbox = _get_bbox_from_layers(layers)
+
+    # Give thumbnail creation to celery tasks, and exit.
+    map_obj = Map.objects.get(id=mapid)
+    create_qgis_server_thumbnail.delay(map_obj, overwrite=True, bbox=bbox)
+    retval = {
+        'success': True
+    }
+    return HttpResponse(
+        json.dumps(retval), content_type="application/json")
+
+
+def _get_bbox_from_layers(layers):
+    """
+    Calculate the bbox from a given list of Layer objects
+    """
+    bbox = None
+    for layer in layers:
+        layer_bbox = layers[layer].bbox_string.split(',')
+        if bbox is None:
+            bbox = [float(key) for key in layer_bbox]
+        else:
+            bbox[0] = float(min(bbox[0], layer_bbox[0]))
+            bbox[1] = float(min(bbox[1], layer_bbox[1]))
+            bbox[2] = float(max(bbox[2], layer_bbox[2]))
+            bbox[3] = float(max(bbox[3], layer_bbox[3]))
+
+    return bbox

@@ -226,6 +226,8 @@
                           <a href="javascript:$('#embed-iframe').modal()">Embed Iframe Link</a></li>
                       <li>
                           <a href="javascript:$('#embed-widget').modal()">Embed Widget Link</a></li>
+                      <li>
+                          <a href="{% url 'map_download_leaflet' resource.id %}">Download Leaflet page</a></li>
                   </ul>
               </div>
           </li>
@@ -278,7 +280,7 @@
         </div>
     </div>
 
-        <div class="modal fade" id="embed-widget" tabindex="-1" role="dialog" aria-labelledby="Embed Widget"
+    <div class="modal fade" id="embed-widget" tabindex="-1" role="dialog" aria-labelledby="Embed Widget"
          aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
