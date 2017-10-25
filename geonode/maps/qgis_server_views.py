@@ -51,8 +51,9 @@ if check_ogc_backend(geoserver.BACKEND_PACKAGE):
     from geonode.geoserver.helpers import ogc_server_settings
 
 elif check_ogc_backend(qgis_server.BACKEND_PACKAGE):
-    from geonode.qgis_server.helpers import ogc_server_settings
+    from geonode.qgis_server.helpers import ogc_server_settings, create_qgis_project
     from geonode.qgis_server.tasks.update import create_qgis_server_thumbnail
+    from geonode.qgis_server.models import QGISServerMap
 
 logger = logging.getLogger("geonode.maps.qgis_server_views")
 
@@ -615,10 +616,11 @@ def set_thumbnail_map(request, mapid):
     local_layers = [l for l in map_layers if l.local]
 
     layers = {}
+    qgs_layers = []
     for layer in local_layers:
         try:
             l = Layer.objects.get(typename=layer.name)
-
+            qgs_layers.append(l)
             layers[l.name] = l
         except Layer.DoesNotExist:
             msg = 'No Layer found for typename: {0}'.format(layer.name)
@@ -632,6 +634,18 @@ def set_thumbnail_map(request, mapid):
 
     # Give thumbnail creation to celery tasks, and exit.
     map_obj = Map.objects.get(id=mapid)
+    # Re-create the qgs project
+    qgis_map, created = QGISServerMap.objects.get_or_create(map=map_obj)
+    response = create_qgis_project(
+        layer=qgs_layers,
+        qgis_project_path=qgis_map.qgis_project_path,
+        overwrite=True)
+
+    logger.debug('Create project url: {url}'.format(url=response.url))
+    logger.debug(
+        'Creating the QGIS Project : %s -> %s' % (
+            qgis_map.qgis_project_path, response.content))
+
     create_qgis_server_thumbnail.delay(map_obj, overwrite=True, bbox=bbox)
     retval = {
         'success': True
