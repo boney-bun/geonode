@@ -70,7 +70,11 @@ class MapCreateView(CreateView):
         else:
             access_token = None
 
-            DEFAULT_MAP_CONFIG, DEFAULT_BASE_LAYERS = default_map_config(request)
+        snapshot = self.kwargs.get('snapshot')
+
+        DEFAULT_MAP_CONFIG, DEFAULT_BASE_LAYERS = default_map_config(request)
+
+        layers = Layer.objects.all()
 
         if request.method == 'GET' and 'copy' in request.GET:
             """Prepare context data."""
@@ -80,14 +84,12 @@ class MapCreateView(CreateView):
             map_obj = _resolve_map(
                 request, mapid, 'base.view_resourcebase', _PERMISSION_MSG_VIEW)
 
-            snapshot = self.kwargs.get('snapshot')
             if snapshot is None:
                 config = map_obj.viewer_json(request.user, access_token)
             else:
                 config = snapshot_config(snapshot, map_obj, request.user,
                                          access_token)
             # list all required layers
-            layers = Layer.objects.all()
             map_layers = MapLayer.objects.filter(
                 map_id=mapid).order_by('stack_order')
             context = {
@@ -115,7 +117,6 @@ class MapCreateView(CreateView):
                 map_obj = Map(projection=getattr(
                     settings, 'DEFAULT_MAP_CRS', 'EPSG:3857'))
 
-                layers = []
                 for layer_name in params.getlist('layer'):
                     try:
                         layer = _resolve_layer(request, layer_name)
@@ -198,8 +199,6 @@ class MapCreateView(CreateView):
                             visibility=True
                         )
 
-                    layers.append(map_layers)
-
                 if bbox is not None:
                     minx, miny, maxx, maxy = [float(coord) for coord in bbox]
                     x = (minx + maxx) / 2
@@ -235,9 +234,13 @@ class MapCreateView(CreateView):
                     map_obj.zoom = math.ceil(min(width_zoom, height_zoom))
 
                 map_obj.handle_moderated_uploads()
-                config = map_obj.viewer_json(
-                    request.user, access_token,
-                    *(DEFAULT_BASE_LAYERS + layers))
+
+                if snapshot is None:
+                    config = map_obj.viewer_json(request.user, access_token)
+                else:
+                    config = snapshot_config(snapshot, map_obj, request.user,
+                                             access_token)
+
                 config['fromLayer'] = True
                 context = {
                     'config': json.dumps(config),
