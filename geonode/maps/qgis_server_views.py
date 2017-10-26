@@ -450,7 +450,7 @@ class MapUpdateView(UpdateView):
                     content_type="text/plain",
                     status=401
                 )
-
+            map_obj.overwrite = True
             map_obj.save()
             map_obj.set_default_permissions()
             map_obj.handle_moderated_uploads()
@@ -634,18 +634,6 @@ def set_thumbnail_map(request, mapid):
 
     # Give thumbnail creation to celery tasks, and exit.
     map_obj = Map.objects.get(id=mapid)
-    # Re-create the qgs project
-    qgis_map, created = QGISServerMap.objects.get_or_create(map=map_obj)
-    response = create_qgis_project(
-        layer=qgs_layers,
-        qgis_project_path=qgis_map.qgis_project_path,
-        overwrite=True)
-
-    logger.debug('Create project url: {url}'.format(url=response.url))
-    logger.debug(
-        'Creating the QGIS Project : %s -> %s' % (
-            qgis_map.qgis_project_path, response.content))
-
     create_qgis_server_thumbnail.delay(map_obj, overwrite=True, bbox=bbox)
     retval = {
         'success': True
