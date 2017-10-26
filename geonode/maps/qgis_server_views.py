@@ -51,9 +51,8 @@ if check_ogc_backend(geoserver.BACKEND_PACKAGE):
     from geonode.geoserver.helpers import ogc_server_settings
 
 elif check_ogc_backend(qgis_server.BACKEND_PACKAGE):
-    from geonode.qgis_server.helpers import ogc_server_settings, create_qgis_project
+    from geonode.qgis_server.helpers import ogc_server_settings
     from geonode.qgis_server.tasks.update import create_qgis_server_thumbnail
-    from geonode.qgis_server.models import QGISServerMap
 
 logger = logging.getLogger("geonode.maps.qgis_server_views")
 
@@ -616,11 +615,9 @@ def set_thumbnail_map(request, mapid):
     local_layers = [l for l in map_layers if l.local]
 
     layers = {}
-    qgs_layers = []
     for layer in local_layers:
         try:
             l = Layer.objects.get(typename=layer.name)
-            qgs_layers.append(l)
             layers[l.name] = l
         except Layer.DoesNotExist:
             msg = 'No Layer found for typename: {0}'.format(layer.name)
