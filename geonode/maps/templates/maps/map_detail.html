@@ -227,11 +227,11 @@
                           data-toggle="dropdown"
                           aria-haspopup="true" aria-expanded="false">
                       Embed Map <span class="caret"></span></button>
-                  <ul class="dropdown-menu btn-block">
-                      <li>
-                          <a href="javascript:$('#embed-iframe').modal()">Embed Iframe Link</a></li>
-                      <li>
-                          <a href="javascript:$('#embed-widget').modal()">Embed Widget Link</a></li>
+                  <ul class="dropdown-menu btn-block" id="embed-map-list">
+                      <li id="embed-iframe-link">
+                          <a href="#">Embed Iframe Link</a></li>
+                      <li id="embed-widget-link">
+                          <a href="#">Embed Widget Link</a></li>
                       <li>
                           <a href="{% url 'map_download_leaflet' resource.id %}">Download Leaflet page</a></li>
                   </ul>
@@ -411,6 +411,15 @@
   $('#set_thumbnail').click(function(){
     createMapThumbnail();
     $('#edit-map').modal('toggle');
+  });
+  $('#embed-map-list li').click(function(){
+    if ($(this).attr('id') === 'embed-iframe-link')
+    {
+        $('#embed-iframe').modal('toggle');
+    }
+    else if ($(this).attr('id') === 'embed-widget-link') {
+        $('#embed-widget').modal('toggle');
+    }
   });
 </script>
 
