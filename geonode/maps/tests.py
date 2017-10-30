@@ -34,7 +34,7 @@ from django.conf import settings
 
 from geonode.decorators import on_ogc_backend
 from geonode.layers.models import Layer
-from geonode.maps.models import Map, MapLayer
+from geonode.maps.models import Map
 from geonode.maps.utils import fix_baselayers
 from geonode import geoserver, qgis_server
 from geonode.utils import default_map_config, check_ogc_backend
@@ -169,7 +169,7 @@ community."
         self.assertEquals(map_obj.layer_set.all().count(), 1)
 
     @on_ogc_backend(qgis_server.BACKEND_PACKAGE)
-    def test_map_json(self):
+    def test_map_json_on_qgis_server(self):
         json_payload = InitialSetup.generate_initial_map()
         # First, create a map with two layers (and 2 background layers)
         # Need to log in for saving a map
@@ -206,7 +206,7 @@ community."
             len(result_update_map.context_data['map'].layers),
             after_remove)
         # new thumbnail exist and has the same url with the old one
-        self.assertEqual (
+        self.assertEqual(
             old_map_obj.get_thumbnail_url(),
             new_map_obj.get_thumbnail_url())
 
