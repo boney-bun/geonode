@@ -713,7 +713,7 @@ class InitialSetup():
                         "source": "source_OpenStreetMap"
                     },
                     {
-                        "name": layer2.typename,
+                        "name": layer2.alternate,
                         "title": layer2.name,
                         "visibility": True,
                         "url": "http://geonode.dev/qgis-server/tiles"
@@ -723,7 +723,7 @@ class InitialSetup():
                                   "san_andres_y_providencia_administrative"
                     },
                     {
-                        "name": layer1.typename,
+                        "name": layer1.alternate,
                         "title": layer1.name,
                         "visibility": True,
                         "url": "http://geonode.dev/qgis-server/tiles"

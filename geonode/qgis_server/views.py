@@ -815,6 +815,7 @@ def set_thumbnail(request, layername):
     # extract bbox
     bbox_string = request.POST['bbox']
     # BBox should be in the format: [xmin,ymin,xmax,ymax], EPSG:4326
+    # coming from leafletjs
     bbox = bbox_string.split(',')
     bbox = [float(s) for s in bbox]
 

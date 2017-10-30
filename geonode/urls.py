@@ -31,10 +31,10 @@ import geonode.proxy.urls
 from geonode.api.urls import api
 from geonode.api.views import verify_token, roles, users, admin_role
 
-import autocomplete_light
+from autocomplete_light.registry import autodiscover
 
 # Setup Django Admin
-autocomplete_light.autodiscover()
+autodiscover()
 
 admin.autodiscover()
 
@@ -81,6 +81,7 @@ urlpatterns = patterns('',
                        (r"^account/", include("account.urls")),
                        (r'^people/', include('geonode.people.urls')),
                        (r'^avatar/', include('avatar.urls')),
+                       # (r'^comments/', include('dialogos.urls')),
                        (r'^comments/', include('dialogos.urls')),
                        (r'^ratings/', include('agon_ratings.urls')),
                        (r'^activity/', include('actstream.urls')),
@@ -100,6 +101,7 @@ urlpatterns = patterns('',
                        url(r'^jsi18n/$', 'django.views.i18n.javascript_catalog', js_info_dict, name='jscat'),
                        url(r'^sitemap\.xml$', 'django.contrib.sitemaps.views.sitemap', {'sitemaps': sitemaps},
                            name='sitemap'),
+                       url(r'^robots\.txt$', TemplateView.as_view(template_name='robots.txt'), name='robots'),
 
                        (r'^i18n/', include('django.conf.urls.i18n')),
                        (r'^autocomplete/', include('autocomplete_light.urls')),
@@ -129,6 +131,11 @@ if "geonode.contrib.metadataxsl" in settings.INSTALLED_APPS:
                             (r'^showmetadata/', include('geonode.contrib.metadataxsl.urls')),
                             )
 
+if "geonode.contrib.createlayer" in settings.INSTALLED_APPS:
+    urlpatterns += patterns('',
+                            (r'^createlayer/', include('geonode.contrib.createlayer.urls')),
+                            )
+
 if 'geonode.geoserver' in settings.INSTALLED_APPS:
     # GeoServer Helper Views
     urlpatterns += patterns('',
@@ -155,6 +162,11 @@ if "djmp" in settings.INSTALLED_APPS:
                             (r'^djmp/', include('djmp.urls')),
                             )
 
+if 'geonode.contrib.ows_api' in settings.INSTALLED_APPS:
+    urlpatterns += patterns('',
+                            url('^', include('geonode.contrib.ows_api.urls')),
+                            )
+
 # Set up proxy
 urlpatterns += geonode.proxy.urls.urlpatterns
 
@@ -168,3 +180,7 @@ urlpatterns += patterns('',
                         (r'^featured/(?P<site>[A-Za-z0-9_\-]+)/$', 'geonode.maps.views.featured_map'),
                         (r'^featured/(?P<site>[A-Za-z0-9_\-]+)/info$', 'geonode.maps.views.featured_map_info'),
                         )
+
+
+if settings.MONITORING_ENABLED:
+    urlpatterns += [url(r'^monitoring/', include('geonode.contrib.monitoring.urls', namespace='monitoring'))]

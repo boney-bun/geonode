@@ -100,14 +100,16 @@ def qgis_server_post_save(instance, sender, **kwargs):
     # 1. Create or update associated QGISServerLayer [Done]
     # 2. Create Link for the tile and legend.
     logger.debug('QGIS Server Post Save')
-    qgis_layer, created = QGISServerLayer.objects.get_or_create(
-        layer=instance)
+
     # copy layer to QGIS Layer Directory
     try:
         geonode_layer_path = instance.get_base_file()[0].file.path
     except AttributeError:
         logger.debug('Layer does not have base file')
         return
+
+    qgis_layer, created = QGISServerLayer.objects.get_or_create(
+        layer=instance)
     logger.debug('Geonode Layer Path %s' % geonode_layer_path)
 
     base_filename, original_ext = os.path.splitext(geonode_layer_path)
@@ -401,7 +403,7 @@ def qgis_server_post_save(instance, sender, **kwargs):
 def qgis_server_pre_save_maplayer(instance, sender, **kwargs):
     logger.debug('QGIS Server Pre Save Map Layer %s' % instance.name)
     try:
-        layer = Layer.objects.get(typename=instance.name)
+        layer = Layer.objects.get(alternate=instance.name)
         if layer:
             instance.local = True
     except Layer.DoesNotExist:
@@ -426,10 +428,16 @@ def qgis_server_post_save_map(instance, sender, **kwargs):
     layers = []
     for layer in local_layers:
         try:
-            l = Layer.objects.get(typename=layer.name)
+            l = Layer.objects.get(alternate=layer.name)
+            if not l.qgis_layer:
+                raise QGISServerLayer.DoesNotExist
             layers.append(l)
         except Layer.DoesNotExist:
             msg = 'No Layer found for typename: {0}'.format(layer.name)
+            logger.debug(msg)
+        except QGISServerLayer.DoesNotExist:
+            msg = 'No QGIS Server Layer found for typename: {0}'.format(
+                layer.name)
             logger.debug(msg)
 
     if not layers:
@@ -496,6 +504,7 @@ def qgis_server_post_save_map(instance, sender, **kwargs):
     )
 
     # Set default bounding box based on all layers extents.
+    # bbox format [xmin, xmax, ymin, ymax]
     bbox = instance.get_bbox_from_layers(instance.local_layers)
     instance.set_bounds_from_bbox(bbox)
     Map.objects.filter(id=map_id).update(

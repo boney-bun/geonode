@@ -1,7 +1,5 @@
 sudo: required
 
-group: deprecated-2017Q2
-
 language: python
 
 python:
@@ -12,8 +10,6 @@ virtualenv:
 
 services:
   - docker
-  # GeoServer used Rabbitmq for notifier services
-  - rabbitmq
 
 env:
   - BACKEND: 'geonode.geoserver'
@@ -21,7 +17,7 @@ env:
     DOCKER_COMPOSE_VERSION: 1.11.2
     # This is qgis server address
     QGIS_SERVER_URL: http://localhost:9000/
-    # This is the IP of docker network bridge
+    # This is the location of docker network bridge
     # So QGIS server can access this address
     SITEURL: http://localhost:8000/
     GEONODE_PROJECT_PATH: /home/travis/build/kartoza/geonode/
@@ -40,17 +36,16 @@ before_install:
 
 install:
   - sudo apt-get -qq -y update
-  - sudo apt-get install -y libgdal1h python-gdal
+  - sudo apt-get install -y libgdal1h python-gdal gdal-bin spatialite-bin
   - sudo apt-get install -y python-virtualenv python-imaging python-lxml python-pyproj python-shapely python-nose python-httplib2 python-httplib2 gettext
+  - sudo apt-get install -y python-dev libxml2 libxml2-dev libxslt1-dev zlib1g-dev libjpeg-dev libpq-dev libgdal-dev git default-jdk
   - sudo add-apt-repository -y ppa:webupd8team/java
   - sudo apt-get update
-  - sudo apt-get install -y --force-yes oracle-java8-installer ant maven2 libjai-core-java --no-install-recommends
-  # install libjai-imageio-core-java in trusty
-  - wget https://launchpad.net/ubuntu/+archive/primary/+files/libjai-imageio-core-java_1.2-3_amd64.deb
-  - sudo dpkg -i libjai-imageio-core-java_1.2-3_amd64.deb
+  - sudo apt-get install -y --force-yes oracle-java8-installer ant maven2 --no-install-recommends
   - sudo update-java-alternatives --set java-8-oracle
   - pip install -r requirements.txt
-  - pip install -e . --no-deps
+  - pip install -e .
+  - pip install pygdal==`gdal-config --version`
   - pip install codecov
 
 before_script:
