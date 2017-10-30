@@ -23,6 +23,7 @@
     relationships, actstream user_messages and potentially others
 """
 import logging
+import datetime
 from collections import defaultdict
 from dialogos.models import Comment
 
@@ -51,7 +52,7 @@ if "relationships" in settings.INSTALLED_APPS:
     from relationships.models import Relationship
 
 ratings = None
-if "agon_ratings" in settings.INSTALLED_APPS:
+if "ratings" in settings.INSTALLED_APPS:
     ratings = True
     from agon_ratings.models import Rating
 
@@ -84,7 +85,11 @@ def activity_post_modify_object(sender, instance, created=None, **kwargs):
                                                updated_verb=_('updated'),
                                                ))
 
-    action_settings['map'].update(object_name=getattr(instance, 'title', None),)
+    try:
+        action_settings['map'].update(object_name=getattr(instance, 'title', None),)
+    except Exception as e:
+        logger.exception(e)
+
     action_settings['comment'].update(actor=getattr(instance, 'author', None),
                                       created_verb=_("added a comment"),
                                       target=getattr(instance, 'content_object', None),
@@ -156,6 +161,22 @@ def notification_post_save_resource(instance, sender, created, **kwargs):
     recipients = get_notification_recipients(notice_type_label)
     send_notification(recipients, notice_type_label, {'resource': instance})
 
+    # Approval Notifications Here
+    if settings.ADMIN_MODERATE_UPLOADS:
+        if instance.is_approved and not instance.is_published:
+            notice_type_label = '%s_approved'
+            notice_type_label = notice_type_label % instance.class_name.lower()
+            recipients = get_notification_recipients(notice_type_label)
+            send_notification(recipients, notice_type_label, {'resource': instance})
+
+    # Publishing Notifications Here
+    if settings.RESOURCE_PUBLISHING:
+        if instance.is_approved and instance.is_published:
+            notice_type_label = '%s_published'
+            notice_type_label = notice_type_label % instance.class_name.lower()
+            recipients = get_notification_recipients(notice_type_label)
+            send_notification(recipients, notice_type_label, {'resource': instance})
+
 
 def notification_post_delete_resource(instance, sender, **kwargs):
     """ Send a notification when a layer, map or document is deleted
@@ -198,3 +219,30 @@ if relationships and activity:
     signals.pre_delete.connect(relationship_pre_delete_actstream, sender=Relationship)
 if relationships and has_notifications:
     signals.post_save.connect(relationship_post_save, sender=Relationship)
+
+
+def json_serializer_producer(dictionary):
+    output = {}
+    # pop no useful information for others services which wants to connect to geonode
+    if 'supplemental_information_en' in dictionary.keys():
+        dictionary.pop('supplemental_information_en', None)
+    if 'supplemental_information' in dictionary.keys():
+        dictionary.pop('supplemental_information', None)
+    if 'doc_file' in dictionary.keys():
+        file_object = dictionary['doc_file']
+        dictionary['doc_file'] = str(file_object)
+    if 'keywords' in dictionary.keys():
+        keys = dictionary['keywords']
+        dictionary['keywords'] = str(keys)
+    for (x, y) in dictionary.items():
+        if not y:
+            # this is used to solve
+            # TypeError: [] is not JSON serializable when it is null
+            y = str(y)
+        # check datetime object
+        # TODO: Use instanceof
+        if type(y) == datetime.datetime:
+            y = str(y)
+
+        output[x] = y
+    return output

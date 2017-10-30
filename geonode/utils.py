@@ -40,8 +40,11 @@ from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
+# use lazy gettext because some translated strings are used before
+# i18n infra is up
 from django.utils.translation import ugettext_lazy as _
-from django.db import models
+from django.db import models, connection, transaction
+from django.core.serializers.json import DjangoJSONEncoder
 import httplib2
 import urlparse
 import urllib
@@ -64,6 +67,7 @@ ALPHABET = string.ascii_uppercase + string.ascii_lowercase + \
 ALPHABET_REVERSE = dict((c, i) for (i, c) in enumerate(ALPHABET))
 BASE = len(ALPHABET)
 SIGN_CHARACTER = '$'
+SQL_PARAMS_RE = re.compile(r'%\(([\w_\-]+)\)s')
 
 http_client = httplib2.Http()
 
@@ -133,6 +137,8 @@ def _split_query(query):
 
 
 def bbox_to_wkt(x0, x1, y0, y1, srid="4326"):
+    if srid and srid.startswith('EPSG:'):
+        srid = srid[5:]
     if None not in [x0, x1, y0, y1]:
         wkt = 'SRID=%s;POLYGON((%s %s,%s %s,%s %s,%s %s,%s %s))' % (
             srid, x0, y0, x0, y1, x1, y1, x1, y0, x0, y0)
@@ -142,14 +148,14 @@ def bbox_to_wkt(x0, x1, y0, y1, srid="4326"):
 
 
 def llbbox_to_mercator(llbbox):
-    minlonlat = forward_mercator([llbbox[0], llbbox[1]])
-    maxlonlat = forward_mercator([llbbox[2], llbbox[3]])
+    minlonlat = forward_mercator([llbbox[0], llbbox[2]])
+    maxlonlat = forward_mercator([llbbox[1], llbbox[3]])
     return [minlonlat[0], minlonlat[1], maxlonlat[0], maxlonlat[1]]
 
 
 def mercator_to_llbbox(bbox):
-    minlonlat = inverse_mercator([bbox[0], bbox[1]])
-    maxlonlat = inverse_mercator([bbox[2], bbox[3]])
+    minlonlat = inverse_mercator([bbox[0], bbox[2]])
+    maxlonlat = inverse_mercator([bbox[1], bbox[3]])
     return [minlonlat[0], minlonlat[1], maxlonlat[0], maxlonlat[1]]
 
 
@@ -200,6 +206,8 @@ def layer_from_viewer_config(model, layer, source, ordering):
               "fixed", "group", "visibility", "source", "getFeatureInfo"]:
         if k in layer_cfg:
             del layer_cfg[k]
+    layer_cfg["wrapDateLine"] = True
+    layer_cfg["displayOutsideMaxExtent"] = True
 
     source_cfg = dict(source)
     for k in ["url", "projection"]:
@@ -290,12 +298,13 @@ class GXPMapBase(object):
                        for source in sources.values() if 'url' in source]
 
         if 'geonode.geoserver' in settings.INSTALLED_APPS:
-            if len(sources.keys()) > 0 and not settings.MAP_BASELAYERS[0]['source']['url'] in source_urls:
+            if len(sources.keys(
+            )) > 0 and not settings.MAP_BASELAYERS[0]['source']['url'] in source_urls:
                 keys = sorted(sources.keys())
                 settings.MAP_BASELAYERS[0]['source'][
                     'title'] = 'Local Geoserver'
-                sources[
-                    str(int(keys[-1]) + 1)] = settings.MAP_BASELAYERS[0]['source']
+                sources[str(int(keys[-1]) + 1)
+                        ] = settings.MAP_BASELAYERS[0]['source']
 
         def _base_source(source):
             base_source = copy.deepcopy(source)
@@ -310,8 +319,8 @@ class GXPMapBase(object):
                     _base_source,
                     sources.values()):
                 if len(sources.keys()) > 0:
-                    sources[
-                        str(int(max(sources.keys(), key=int)) + 1)] = lyr["source"]
+                    sources[str(int(max(sources.keys(), key=int)) + 1)
+                            ] = lyr["source"]
 
         # adding remote services sources
         from geonode.services.models import Service
@@ -412,8 +421,12 @@ class GXPLayerBase(object):
                 request_params['access_token'] = [access_token]
                 encoded_params = urllib.urlencode(request_params, doseq=True)
 
-                parsed_url = urlparse.SplitResult(my_url.scheme, my_url.netloc, my_url.path,
-                                                  encoded_params, my_url.fragment)
+                parsed_url = urlparse.SplitResult(
+                    my_url.scheme,
+                    my_url.netloc,
+                    my_url.path,
+                    encoded_params,
+                    my_url.fragment)
                 cfg["url"] = parsed_url.geturl()
             else:
                 cfg["url"] = self.ows_url
@@ -468,6 +481,8 @@ class GXPLayer(GXPLayerBase):
         self.fixed = False
         self.group = None
         self.visibility = True
+        self.wrapDateLine = True
+        self.displayOutsideMaxExtent = True
         self.ows_url = ows_url
         self.layer_params = ""
         self.source_params = ""
@@ -512,7 +527,8 @@ def default_map_config(request):
             u = uuid.uuid1()
             access_token = u.hex
 
-    DEFAULT_MAP_CONFIG = _default_map.viewer_json(user, access_token, *DEFAULT_BASE_LAYERS)
+    DEFAULT_MAP_CONFIG = _default_map.viewer_json(
+        user, access_token, *DEFAULT_BASE_LAYERS)
 
     return DEFAULT_MAP_CONFIG, DEFAULT_BASE_LAYERS
 
@@ -551,12 +567,13 @@ def resolve_object(request, model, query, permission='base.view_resourcebase',
 
     if settings.RESOURCE_PUBLISHING:
         if (not obj_to_check.is_published) and (
-                not request.user.has_perm('publish_resourcebase', obj_to_check)
-        ):
+            not request.user.has_perm('publish_resourcebase', obj_to_check)) and (
+                not request.user.has_perm('change_resourcebase_metadata', obj_to_check)):
             raise Http404
 
     allowed = True
-    if permission.split('.')[-1] in ['change_layer_data', 'change_layer_style']:
+    if permission.split('.')[-1] in ['change_layer_data',
+                                     'change_layer_style']:
         if obj.__class__.__name__ == 'Layer':
             obj_to_check = obj
     if permission:
@@ -567,6 +584,8 @@ def resolve_object(request, model, query, permission='base.view_resourcebase',
     if not allowed:
         mesg = permission_msg or _('Permission Denied')
         raise PermissionDenied(mesg)
+    if settings.MONITORING_ENABLED:
+        request.add_resource(model._meta.verbose_name_raw, obj.alternate if hasattr(obj, 'alternate') else obj.title)
     return obj
 
 
@@ -613,7 +632,7 @@ def json_response(body=None, errors=None, redirect_to=None, exception=None,
         status = 200
 
     if not isinstance(body, basestring):
-        body = json.dumps(body)
+        body = json.dumps(body, cls=DjangoJSONEncoder)
     return HttpResponse(body, content_type=content_type, status=status)
 
 
@@ -652,7 +671,8 @@ def format_urls(a, values):
 
 def build_abstract(resourcebase, url=None, includeURL=True):
     if resourcebase.abstract and url and includeURL:
-        return u"{abstract} -- [{url}]({url})".format(abstract=resourcebase.abstract, url=url)
+        return u"{abstract} -- [{url}]({url})".format(
+            abstract=resourcebase.abstract, url=url)
     else:
         return resourcebase.abstract
 
@@ -677,8 +697,10 @@ def build_social_links(request, resourcebase):
         host=request.get_host(),
         path=request.get_full_path())
     # Don't use datetime strftime() because it requires year >= 1900
-    # see https://docs.python.org/2/library/datetime.html#strftime-strptime-behavior
-    date = '{0.month:02d}/{0.day:02d}/{0.year:4d}'.format(resourcebase.date) if resourcebase.date else None
+    # see
+    # https://docs.python.org/2/library/datetime.html#strftime-strptime-behavior
+    date = '{0.month:02d}/{0.day:02d}/{0.year:4d}'.format(
+        resourcebase.date) if resourcebase.date else None
     abstract = build_abstract(resourcebase, url=social_url, includeURL=True)
     caveats = build_caveats(resourcebase)
     hashtags = ",".join(getattr(settings, 'TWITTER_HASHTAGS', []))
@@ -731,7 +753,9 @@ def check_shp_columnnames(layer):
             list_col_original.append(field_name)
     try:
         for i in range(0, inLayerDefn.GetFieldCount()):
-            field_name = unicode(inLayerDefn.GetFieldDefn(i).GetName(), layer.charset)
+            field_name = unicode(
+                inLayerDefn.GetFieldDefn(i).GetName(),
+                layer.charset)
 
             if not a.match(field_name):
                 new_field_name = custom_slugify(field_name)
@@ -754,12 +778,17 @@ def check_shp_columnnames(layer):
         return True, None, None
     else:
         for key in list_col.keys():
-            qry = u"ALTER TABLE {0} RENAME COLUMN \"{1}\" TO \"{2}\"".format(inLayer.GetName(), key, list_col[key])
+            qry = u"ALTER TABLE {0} RENAME COLUMN \"{1}\" TO \"{2}\"".format(
+                inLayer.GetName(), key, list_col[key])
             inDataSource.ExecuteSQL(qry.encode(layer.charset))
     return True, None, list_col
 
 
-def set_attributes(layer, attribute_map, overwrite=False, attribute_stats=None):
+def set_attributes(
+        layer,
+        attribute_map,
+        overwrite=False,
+        attribute_stats=None):
     """ *layer*: a geonode.layers.models.Layer instance
         *attribute_map*: a list of 2-lists specifying attribute names and types,
             example: [ ['id', 'Integer'], ... ]
@@ -793,7 +822,8 @@ def set_attributes(layer, attribute_map, overwrite=False, attribute_stats=None):
                 # store description and attribute_label in attribute_map
                 attribute[attribute_map_dict['description']] = la.description
                 attribute[attribute_map_dict['label']] = la.attribute_label
-                attribute[attribute_map_dict['display_order']] = la.display_order
+                attribute[attribute_map_dict['display_order']
+                          ] = la.display_order
         if overwrite or not lafound:
             logger.debug(
                 "Going to delete [%s] for [%s]",
@@ -866,7 +896,8 @@ def designals():
 
     for signalname in signalnames:
         signaltype = getattr(models.signals, signalname)
-        logger.debug("RETRIEVE: %s: %d" % (signalname, len(signaltype.receivers)))
+        logger.debug("RETRIEVE: %s: %d" %
+                     (signalname, len(signaltype.receivers)))
         signals_store[signalname] = []
         signals = signaltype.receivers[:]
         for signal in signals:
@@ -886,7 +917,7 @@ def designals():
                 # - case id(function) or uid
                 try:
                     receiv_call = id_to_obj(lookup[0])
-                except:
+                except BaseException:
                     uid = lookup[0]
 
             if isinstance(lookup[1], tuple):
@@ -907,9 +938,13 @@ def designals():
                 'uid': uid, 'is_weak': is_weak,
                 'sender_ista': sender_ista, 'sender_call': sender_call,
                 'receiv_call': receiv_call,
-                })
+            })
 
-            signaltype.disconnect(receiver=receiv_call, sender=sender_ista, weak=is_weak, dispatch_uid=uid)
+            signaltype.disconnect(
+                receiver=receiv_call,
+                sender=sender_ista,
+                weak=is_weak,
+                dispatch_uid=uid)
 
 
 def resignals():
@@ -919,12 +954,19 @@ def resignals():
         signals = signals_store[signalname]
         signaltype = getattr(models.signals, signalname)
         for signal in signals:
-            signaltype.connect(signal['receiv_call'], sender=signal['sender_ista'],
-                               weak=signal['is_weak'], dispatch_uid=signal['uid'])
+            signaltype.connect(
+                signal['receiv_call'],
+                sender=signal['sender_ista'],
+                weak=signal['is_weak'],
+                dispatch_uid=signal['uid'])
 
 
 def run_subprocess(*cmd, **kwargs):
-    p = subprocess.Popen(' '.join(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kwargs)
+    p = subprocess.Popen(
+        ' '.join(cmd),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        **kwargs)
     stdout = StringIO()
     stderr = StringIO()
     buff_size = 1024
@@ -946,6 +988,38 @@ def run_subprocess(*cmd, **kwargs):
             w.write('')
 
     return p.returncode, stdout.getvalue(), stderr.getvalue()
+
+
+def parse_datetime(value):
+    for patt in settings.DATETIME_INPUT_FORMATS:
+        try:
+            return datetime.datetime.strptime(value, patt)
+        except ValueError:
+            pass
+    raise ValueError("Invalid datetime input: {}".format(value))
+
+
+def _convert_sql_params(cur, query):
+    # sqlite driver doesn't support %(key)s notation,
+    # use :key instead.
+    if cur.db.vendor in ('sqlite', 'sqlite3', 'spatialite',):
+        return SQL_PARAMS_RE.sub(r':\1', query)
+    return query
+
+
+@transaction.atomic
+def raw_sql(query, params=None, ret=True):
+    """
+    Execute raw query
+    param ret=True returns data from cursor as iterator
+    """
+    with connection.cursor() as c:
+        query = _convert_sql_params(c, query)
+        c.execute(query, params)
+        if ret:
+            desc = [r[0] for r in c.description]
+            for row in c:
+                yield dict(zip(desc, row))
 
 
 def check_ogc_backend(backend_package):

@@ -87,10 +87,10 @@ class QGISServerLayer(models.Model, PermissionLevelMixin):
         """
         base_path = self.base_layer_path
         base_name, __ = os.path.splitext(base_path)
-        extensions_list = QGISServerLayer.accepted_format
+        extensions_list = list(QGISServerLayer.accepted_format)
 
         # QGIS can create a .aux.xml too
-        extensions_list += '.aux.xml'
+        extensions_list += ['.aux.xml']
         found_files = []
         for ext in extensions_list:
             file_path = '{base}.{ext}'.format(

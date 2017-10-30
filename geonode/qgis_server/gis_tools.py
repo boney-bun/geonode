@@ -45,7 +45,7 @@ def set_attributes(layer, overwrite=False):
     :type overwrite: bool
     """
     if layer.storeType in ['dataStore']:
-        layer_name = layer.typename.encode('utf-8')
+        layer_name = layer.alternate.encode('utf-8')
         qgis_layer = QGISServerLayer.objects.get(layer=layer)
 
         qgis_server = geonode_config.QGIS_SERVER_CONFIG['qgis_server_url']

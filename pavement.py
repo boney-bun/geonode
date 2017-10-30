@@ -163,7 +163,7 @@ def _install_data_dir():
             m = re.search('userAuthorizationUri>([^<]+)', xml)
             xml = xml[:m.start(1)] + "http://localhost:8000/o/authorize/" + xml[m.end(1):]
             m = re.search('redirectUri>([^<]+)', xml)
-            xml = xml[:m.start(1)] + "http://localhost:8080/geoserver" + xml[m.end(1):]
+            xml = xml[:m.start(1)] + "http://localhost:8080/geoserver/index.html" + xml[m.end(1):]
             m = re.search('checkTokenEndpointUrl>([^<]+)', xml)
             xml = xml[:m.start(1)] + "http://localhost:8000/api/o/v4/tokeninfo/" + xml[m.end(1):]
             m = re.search('logoutUri>([^<]+)', xml)
@@ -199,6 +199,7 @@ def static(options):
 def setup(options):
     """Get dependencies and prepare a GeoNode development environment."""
 
+    updategeoip(options)
     info(('GeoNode development environment successfully set up.'
           'If you have not set up an administrative account,'
           ' please do so now. Use "paver start" to start up the server.'))
@@ -267,6 +268,14 @@ def upgradedb(options):
         print "Please specify your GeoNode version"
     else:
         print "Upgrades from version %s are not yet supported." % version
+
+
+@task
+def updategeoip(options):
+    """
+    Update geoip db
+    """
+    sh("python manage.py updategeoip -o")
 
 
 @task
@@ -402,13 +411,13 @@ def start_django():
     foreground = '' if options.get('foreground', False) else '&'
     sh('python manage.py runserver %s %s' % (bind, foreground))
 
+
 def start_messaging():
     """
     Start the GeoNode messaging server
     """
     foreground = '' if options.get('foreground', False) else '&'
     sh('python manage.py runmessaging %s' % foreground)
-
 
 
 @cmdopts([
@@ -485,7 +494,7 @@ def start_geoserver(options):
         sh((
             '%(javapath)s -Xms512m -Xmx1024m -server -XX:+UseConcMarkSweepGC -XX:MaxPermSize=256m'
             ' -DGEOSERVER_DATA_DIR=%(data_dir)s'
-            # ' -Dgeofence.dir=%(geofence_dir)s'
+            ' -Dgeofence.dir=%(geofence_dir)s'
             # ' -Dgeofence-ovr=geofence-datasource-ovr.properties'
             # workaround for JAI sealed jar issue and jetty classloader
             # ' -Dorg.eclipse.jetty.server.webapp.parentLoaderPriority=true'
@@ -515,31 +524,8 @@ def test(options):
     """
     Run GeoNode's Unit Test Suite
     """
-    from geonode.settings import INSTALLED_APPS
-
-    success = False
-
-    if 'geonode.geoserver' in INSTALLED_APPS:
-        _reset()
-        # Start GeoServer
-        call_task('start_geoserver')
-        info("GeoNode is now available, running the tests now.")
-
-    try:
-        sh("%s manage.py test %s.tests --noinput --liveserver=0.0.0.0:8000" % (
-            options.get('prefix'), '.tests '.join(GEONODE_APPS)))
-    except BuildFailure as e:
-        info('Tests failed! %s' % str(e))
-    else:
-        success = True
-    finally:
-        if 'geonode.geoserver' in INSTALLED_APPS:
-            # don't use call task here - it won't run since it already has
-            stop()
-
-    _reset()
-    if not success:
-        sys.exit(1)
+    sh("%s manage.py test %s.tests --noinput" % (options.get('prefix'),
+                                                 '.tests '.join(GEONODE_APPS)))
 
 
 @task

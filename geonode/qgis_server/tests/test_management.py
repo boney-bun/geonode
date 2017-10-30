@@ -83,7 +83,7 @@ class TestManagementCommands(LiveServerTestCase):
         # Check tiles cache generated
         self.assertTrue(os.path.exists(qgis_layer.cache_path))
         tiles_png = os.path.join(
-            qgis_layer.cache_path, str(tiles['z']), str(tiles['x']),
+            qgis_layer.cache_path, 'default', str(tiles['z']), str(tiles['x']),
             str(tiles['y']) + '.png')
         self.assertTrue(os.path.exists(tiles_png))
         self.assertEqual(what(tiles_png), 'png')

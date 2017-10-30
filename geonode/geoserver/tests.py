@@ -58,7 +58,7 @@ class LayerTests(TestCase):
 
         logged_in = self.client.login(username='bobby', password='bob')
         self.assertEquals(logged_in, True)
-        response = self.client.get(reverse('layer_style_manage', args=(layer.typename,)))
+        response = self.client.get(reverse('layer_style_manage', args=(layer.alternate,)))
         self.assertEqual(response.status_code, 200)
 
     def test_feature_edit_check(self):
@@ -66,7 +66,7 @@ class LayerTests(TestCase):
         """
 
         # Setup some layer names to work with
-        valid_layer_typename = Layer.objects.all()[0].typename
+        valid_layer_typename = Layer.objects.all()[0].alternate
         Layer.objects.all()[0].set_default_permissions()
         invalid_layer_typename = "n0ch@nc3"
 
@@ -77,7 +77,9 @@ class LayerTests(TestCase):
                 args=(
                     invalid_layer_typename,
                 )))
-        self.assertEquals(response.status_code, 404)
+        self.assertEquals(response.status_code, 200)
+        response_json = json.loads(response.content)
+        self.assertEquals(response_json['authorized'], False)
 
         # First test un-authenticated
         response = self.client.post(
@@ -112,9 +114,8 @@ class LayerTests(TestCase):
                     valid_layer_typename,
                 )))
 
-        # Test that the method returns 401 because it's not a datastore
         response_json = json.loads(response.content)
-        self.assertEquals(response_json['authorized'], False)
+        self.assertEquals(response_json['authorized'], True)
 
         layer = Layer.objects.all()[0]
         layer.storeType = "dataStore"
@@ -150,7 +151,7 @@ class LayerTests(TestCase):
         }
 
         bob = get_user_model().objects.get(username='bobby')
-        layer_ca = Layer.objects.get(typename='geonode:CA')
+        layer_ca = Layer.objects.get(alternate='geonode:CA')
         assign_perm('change_layer_data', bob, layer_ca)
 
         # Test that requesting when supplying the geoserver credentials returns
@@ -248,6 +249,7 @@ class UtilsTests(TestCase):
                 'MAPFISH_PRINT_ENABLED': True,
                 'PRINT_NG_ENABLED': True,
                 'GEONODE_SECURITY_ENABLED': True,
+                'GEOFENCE_SECURITY_ENABLED': True,
                 'GEOGIG_ENABLED': False,
                 'WMST_ENABLED': False,
                 'BACKEND_WRITE_ENABLED': True,
