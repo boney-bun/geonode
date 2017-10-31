@@ -452,7 +452,7 @@ class MapUpdateView(UpdateView):
                     content_type="text/plain",
                     status=401
                 )
-
+            map_obj.overwrite = True
             map_obj.save()
             map_obj.set_default_permissions()
             map_obj.handle_moderated_uploads()
@@ -621,7 +621,6 @@ def set_thumbnail_map(request, mapid):
     for layer in local_layers:
         try:
             l = Layer.objects.get(typename=layer.name)
-
             layers[l.name] = l
         except Layer.DoesNotExist:
             msg = 'No Layer found for typename: {0}'.format(layer.name)
