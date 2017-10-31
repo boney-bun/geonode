@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 #########################################################################
 #
@@ -22,19 +23,20 @@
 import os
 import sys
 import re
+from datetime import timedelta
 
 from kombu import Queue
 from geonode import __file__ as geonode_path
 from geonode import get_version
 from geonode.celery_app import app  # flake8: noqa
 from distutils.util import strtobool
-import djcelery
+from django.conf.global_settings import DATETIME_INPUT_FORMATS
 import dj_database_url
-
 
 #
 # General Django development settings
 #
+import django
 
 # GeoNode Version
 VERSION = get_version()
@@ -93,7 +95,14 @@ DATABASE_URL = os.getenv(
     )
 )
 
+#DATABASE_URL = 'postgresql://test_geonode:test_geonode@localhost:5432/geonode'
+
 # Defines settings for development
+
+# since GeoDjango is in use, you should use gis-enabled engine, for example:
+# 'ENGINE': 'django.contrib.gis.db.backends.postgis'
+# see https://docs.djangoproject.com/en/1.8/ref/contrib/gis/db-api/#module-django.contrib.gis.db.backends for
+# detailed list of supported backends and notes.
 DATABASES = {
     'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)
 }
@@ -278,6 +287,7 @@ GEONODE_APPS = (
     'geonode.geoserver',
     'geonode.upload',
     'geonode.tasks',
+    'geonode.messaging',
 
 )
 
@@ -290,7 +300,10 @@ GEONODE_CONTRIB_APPS = (
     # 'geonode.contrib.geosites',
     # 'geonode.contrib.nlp',
     # 'geonode.contrib.slack',
+    # 'geonode.contrib.createlayer',
+    # 'geonode.contrib.datastore_shards',
     'geonode.contrib.metadataxsl',
+    'geonode.contrib.api_basemaps',
 )
 
 # Uncomment the following line to enable contrib apps
@@ -326,14 +339,14 @@ INSTALLED_APPS = (
     'geoexplorer',
     'leaflet',
     'django_extensions',
-    #'geonode-client',
+    # 'geonode-client',
     # 'haystack',
     'autocomplete_light',
     'mptt',
     # 'modeltranslation',
     # 'djkombu',
-    'djcelery',
-    'kombu.transport.django',
+    # 'djcelery',
+    # 'kombu.transport.django',
 
     'storages',
     'floppyforms',
@@ -346,7 +359,9 @@ INSTALLED_APPS = (
     'account',
     'avatar',
     'dialogos',
+    # 'pinax.comments',
     'agon_ratings',
+    # 'pinax.ratings',
     'announcements',
     'actstream',
     'user_messages',
@@ -354,7 +369,18 @@ INSTALLED_APPS = (
     'polymorphic',
     'guardian',
     'oauth2_provider',
+    'corsheaders',
 ) + GEONODE_APPS
+
+MONITORING_ENABLED = False
+
+# how long monitoring data should be stored
+MONITORING_DATA_TTL = timedelta(days=7)
+
+# this will disable csrf check for notification config views,
+# use with caution - for dev purpose only
+MONITORING_DISABLE_CSRF = False
+
 
 LOGGING = {
     'version': 1,
@@ -376,7 +402,7 @@ LOGGING = {
     'handlers': {
         'null': {
             'level': 'ERROR',
-            'class': 'django.utils.log.NullHandler',
+            'class': 'logging.NullHandler',
         },
         'console': {
             'level': 'ERROR',
@@ -433,6 +459,7 @@ TEMPLATES = [
 ]
 
 MIDDLEWARE_CLASSES = (
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -458,7 +485,6 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
     'oauth2_provider.middleware.OAuth2TokenMiddleware',
 )
-
 
 # Replacement of default authentication backend in order to support
 # permissions per object.
@@ -554,8 +580,8 @@ THEME_ACCOUNT_CONTACT_EMAIL = os.getenv(
 # some problematic 3rd party apps
 TEST_RUNNER = 'django_nose.NoseTestSuiteRunner'
 
-
 TEST = 'test' in sys.argv
+INTEGRATION = 'geonode.tests.integration' in sys.argv
 # Arguments for the test runner
 NOSE_ARGS = [
     '--nocapture',
@@ -601,6 +627,8 @@ OGC_SERVER_DEFAULT_PASSWORD = os.getenv(
     'GEOSERVER_ADMIN_PASSWORD', 'geoserver'
 )
 
+GEOFENCE_SECURITY_ENABLED = False if TEST and not INTEGRATION else True
+
 # OGC (WMS/WFS/WCS) Server Settings
 # OGC (WMS/WFS/WCS) Server Settings
 OGC_SERVER = {
@@ -618,6 +646,7 @@ OGC_SERVER = {
         'MAPFISH_PRINT_ENABLED': True,
         'PRINT_NG_ENABLED': True,
         'GEONODE_SECURITY_ENABLED': True,
+        'GEOFENCE_SECURITY_ENABLED': GEOFENCE_SECURITY_ENABLED,
         'GEOGIG_ENABLED': False,
         'WMST_ENABLED': False,
         'BACKEND_WRITE_ENABLED': True,
@@ -662,6 +691,8 @@ CATALOGUE = {
         # login credentials (for GeoNetwork)
         # 'USER': 'admin',
         # 'PASSWORD': 'admin',
+
+        # 'ALTERNATES_ONLY': True,
     }
 }
 
@@ -737,6 +768,11 @@ STAMEN_BASEMAPS = os.environ.get('STAMEN_BASEMAPS', False)
 THUNDERFOREST_BASEMAPS = os.environ.get('THUNDERFOREST_BASEMAPS', False)
 MAPBOX_ACCESS_TOKEN = os.environ.get('MAPBOX_ACCESS_TOKEN', None)
 BING_API_KEY = os.environ.get('BING_API_KEY', None)
+GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', None)
+
+# handle timestamps like 2017-05-30 16:04:00.719 UTC
+DATETIME_INPUT_FORMATS = DATETIME_INPUT_FORMATS +\
+    ('%Y-%m-%d %H:%M:%S.%f %Z', '%Y-%m-%dT%H:%M:%S.%f', '%Y-%m-%dT%H:%M:%S%Z')
 
 MAP_BASELAYERS = [{
     "source": {"ptype": "gxp_olsource"},
@@ -848,7 +884,7 @@ HAYSTACK_SEARCH = strtobool(os.getenv('HAYSTACK_SEARCH', 'False'))
 # Avoid permissions prefiltering
 SKIP_PERMS_FILTER = strtobool(os.getenv('SKIP_PERMS_FILTER', 'False'))
 # Update facet counts from Haystack
-HAYSTACK_FACET_COUNTS = strtobool(os.getenv('HAYSTACK_FACET_COUNTS', 'False'))
+HAYSTACK_FACET_COUNTS = strtobool(os.getenv('HAYSTACK_FACET_COUNTS', 'True'))
 # HAYSTACK_CONNECTIONS = {
 #    'default': {
 #        'ENGINE': 'haystack.backends.elasticsearch_backend.'
@@ -1025,11 +1061,21 @@ SEARCH_FILTERS = {
 FREETEXT_KEYWORDS_READONLY = False
 
 # notification settings
-NOTIFICATION_ENABLED = False or TEST
-NOTIFICATION_LANGUAGE_MODULE = "account.Account"
+NOTIFICATION_ENABLED = True or TEST
+PINAX_NOTIFICATIONS_LANGUAGE_MODEL = "account.Account"
+
+# notifications backends
+_EMAIL_BACKEND = "pinax.notifications.backends.email.EmailBackend"
+PINAX_NOTIFICATIONS_BACKENDS = [
+    ("email", _EMAIL_BACKEND),
+]
 
 # Queue non-blocking notifications.
-NOTIFICATION_QUEUE_ALL = False
+PINAX_NOTIFICATIONS_QUEUE_ALL = False
+PINAX_NOTIFICATIONS_LOCK_WAIT_TIMEOUT = -1
+
+# explicitly define NOTIFICATION_LOCK_LOCATION
+# NOTIFICATION_LOCK_LOCATION = <path>
 
 # pinax.notifications
 # or notification
@@ -1041,7 +1087,15 @@ USER_MESSAGES_ALLOW_MULTIPLE_RECIPIENTS = False
 if NOTIFICATION_ENABLED:
     INSTALLED_APPS += (NOTIFICATIONS_MODULE, )
 
+
+# broker url is for celery worker
 BROKER_URL = os.getenv('BROKER_URL', "django://")
+
+# async signals can be the same as broker url
+# but they should have separate setting anyway
+# use amqp:// for local rabbitmq server
+ASYNC_SIGNALS_BROKER_URL = 'memory://'
+
 CELERY_ALWAYS_EAGER = True
 CELERY_EAGER_PROPAGATES_EXCEPTIONS = True
 CELERY_IGNORE_RESULT = True
@@ -1096,7 +1150,7 @@ if S3_MEDIA_ENABLED:
     MEDIA_URL = "https://%s/%s/" % (AWS_S3_BUCKET_DOMAIN, MEDIAFILES_LOCATION)
 
 
-djcelery.setup_loader()
+# djcelery.setup_loader()
 
 # There are 3 ways to override GeoNode settings:
 # 1. Using environment variables, if your changes to GeoNode are minimal.
@@ -1104,7 +1158,7 @@ djcelery.setup_loader()
 # 3. Override settings in a local_settings.py file, legacy.
 # Load more settings from a file called local_settings.py if it exists
 try:
-    from local_settings import *  # noqa
+    from geonode.local_settings import *
 except ImportError:
     pass
 
@@ -1160,4 +1214,26 @@ RISKS = {'DEFAULT_LOCATION': None,
                            'BIN': '/usr/bin/wkhtml2pdf',
                            'ARGS': []}}
 
+# Each uploaded Layer must be approved by an Admin before becoming visible
 ADMIN_MODERATE_UPLOADS = False
+
+# add following lines to your local settings to enable monitoring
+if MONITORING_ENABLED:
+    INSTALLED_APPS + ('geonode.contrib.monitoring',)
+    MIDDLEWARE_CLASSES + ('geonode.contrib.monitoring.middleware.MonitoringMiddleware',)
+
+GEOIP_PATH = os.path.join(PROJECT_ROOT, 'GeoIPCities.dat')
+# If this option is enabled, Resources belonging to a Group won't be visible by others
+GROUP_PRIVATE_RESOURCES = False
+
+# If this option is enabled, Groups will become strictly Mandatory on Metadata Wizard
+GROUP_MANDATORY_RESOURCES = False
+
+# A boolean which specifies wether to display the email in user's profile
+SHOW_PROFILE_EMAIL = False
+
+# Enables cross origin requests for geonode-client
+MAP_CLIENT_USE_CROSS_ORIGIN_CREDENTIALS = strtobool(os.getenv(
+    'MAP_CLIENT_USE_CROSS_ORIGIN_CREDENTIALS',
+    'False'
+))

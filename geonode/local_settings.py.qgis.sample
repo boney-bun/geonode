@@ -84,11 +84,15 @@ LEAFLET_CONFIG = {
 
 # Legacy from Geoserver
 OGC_URL_INSIDE = os.environ.get('OGC_URL_INSIDE', SITEURL)
+# Not using GeoFence if using QGIS Server Backend
+GEOFENCE_SECURITY_ENABLED = False
+
 OGC_SERVER = {
     'default': {
     	'BACKEND': 'geonode.qgis_server',
         'LOCATION': OGC_URL_INSIDE + 'qgis-server/',
-        'PUBLIC_LOCATION': SITEURL + 'qgis-server/'
+        'PUBLIC_LOCATION': SITEURL + 'qgis-server/',
+        'GEOFENCE_SECURITY_ENABLED': GEOFENCE_SECURITY_ENABLED
     }
 }
 

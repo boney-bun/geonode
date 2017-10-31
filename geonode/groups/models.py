@@ -26,7 +26,7 @@ from django.core.urlresolvers import reverse
 from django.contrib.auth.models import Group
 from django.contrib.auth import get_user_model
 from django.db import models, IntegrityError
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import ugettext as _
 from django.utils.text import slugify
 from django.db.models import signals
 from django.contrib.sites.models import Site
@@ -46,7 +46,7 @@ class GroupCategory(models.Model):
         verbose_name_plural = _('Group Categories')
 
     def __str__(self):
-        return 'Category: {}'.format(self.name)
+        return 'Category: {}'.format(self.name.encode('utf-8'))
 
     def get_absolute_url(self):
         return reverse('group_category_detail', args=(self.slug,))

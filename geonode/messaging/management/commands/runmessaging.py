@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #########################################################################
 #
-# Copyright (C) 2016 OSGeo
+# Copyright (C) 2017 OSGeo
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -23,7 +23,10 @@ import sys
 from optparse import make_option
 
 from django.core.management.base import BaseCommand
-from geonode.settings import BROKER_URL
+from django.conf import settings
+
+from geonode.messaging import connection
+from geonode.messaging.consumer import Consumer
 
 logger = logging.getLogger(__package__)
 logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -43,10 +46,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, **options):
-        from kombu import BrokerConnection
-        from geonode.messaging.consumer import Consumer
-
-        with BrokerConnection(BROKER_URL) as connection:
+        with connection:
             try:
                 logger.info("Consumer starting.")
                 worker = Consumer(connection)
