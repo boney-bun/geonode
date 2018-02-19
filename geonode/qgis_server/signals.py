@@ -455,7 +455,7 @@ def qgis_server_post_save_map(instance, sender, **kwargs):
             'map_download',
             kwargs={'mapid': instance.id}))
     logger.debug('map_download_url: %s' % map_download_url)
-    link_name = 'Download Data Layers'
+    link_name = 'Data Layers'
     Link.objects.update_or_create(
         resource=instance.resourcebase_ptr,
         name=link_name,
@@ -473,7 +473,7 @@ def qgis_server_post_save_map(instance, sender, **kwargs):
             'map_wmc',
             kwargs={'mapid': instance.id}))
     logger.debug('wmc_download_url: %s' % ogc_wmc_url)
-    link_name = 'Download Web Map Context'
+    link_name = 'Web Map Context'
     link_mime = 'application/xml'
     Link.objects.update_or_create(
         resource=instance.resourcebase_ptr,
@@ -493,7 +493,7 @@ def qgis_server_post_save_map(instance, sender, **kwargs):
             'map_download_qlr',
             kwargs={'mapid': instance.id}))
     logger.debug('qlr_map_download_url: %s' % ogc_qlr_url)
-    link_name = 'Download QGIS layer file (.qlr)'
+    link_name = 'QGIS layer file (.qlr)'
     link_mime = 'application/xml'
     Link.objects.update_or_create(
         resource=instance.resourcebase_ptr,
