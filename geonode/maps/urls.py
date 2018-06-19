@@ -39,13 +39,14 @@ if check_ogc_backend(geoserver.BACKEND_PACKAGE):
     map_edit = views.map_edit
     map_json = views.map_json
     map_thumbnail = views.map_thumbnail
+    map_detail = views.map_detail
 
 elif check_ogc_backend(qgis_server.BACKEND_PACKAGE):
     from geonode.maps.qgis_server_views import MapCreateView, \
         MapDetailView, MapEmbedView, MapEditView, MapUpdateView
 
     new_map_view = MapCreateView.as_view()
-    existing_map_view = MapDetailView.as_view()
+    existing_map_view = MapEditView.as_view()
     map_embed = MapEmbedView.as_view()
 
     from geonode.maps.qgis_server_views import map_download_qlr, \
@@ -56,6 +57,7 @@ elif check_ogc_backend(qgis_server.BACKEND_PACKAGE):
     map_edit = MapEditView.as_view()
     map_json = MapUpdateView.as_view()
     map_thumbnail = set_thumbnail_map
+    map_detail = MapDetailView.as_view()
 
 urlpatterns = [
     # 'geonode.maps.views',
@@ -68,7 +70,7 @@ urlpatterns = [
     url(r'^new/data$', views.new_map_json, name='new_map_json'),
     url(r'^checkurl/?$', views.ajax_url_lookup),
     url(r'^snapshot/create/?$', views.snapshot_create),
-    url(r'^(?P<mapid>[^/]+)$', views.map_detail, name='map_detail'),
+    url(r'^(?P<mapid>[^/]+)$', map_detail, name='map_detail'),
     url(r'^(?P<mapid>[^/]+)/view$', existing_map_view, name='map_view'),
     url(r'^(?P<mapid>[^/]+)/edit$', map_edit, name='map_edit'),
     url(r'^(?P<mapid>[^/]+)/data$', map_json, name='map_json'),

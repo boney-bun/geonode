@@ -401,8 +401,9 @@
                     title: 'Zoom to global view',
                     zIndex: 1,
                     onClick: function (control) {
-                        zoom_to_box(map, [0, 90, 0, -90]);
-                        map.setZoom(2);
+                        //zoom_to_box(map, [0, 90, 0, -90]);
+                        zoom_to_box(map, {{ layer_bbox }});
+                        map.setZoom(1);
                     }
                     }]
             }).addTo(map);

@@ -31,6 +31,7 @@ from django.utils.decorators import method_decorator
 from django.core.urlresolvers import reverse
 from django.shortcuts import render
 from django.http import HttpResponse
+from guardian.shortcuts import get_perms
 
 from geonode.maps.views import _resolve_map, _PERMISSION_MSG_VIEW, \
     snapshot_config, _resolve_layer
@@ -273,7 +274,7 @@ class MapCreateView(CreateView):
 
 class MapDetailView(DetailView):
     model = Map
-    template_name = 'leaflet/maps/map_view.html'
+    template_name = 'leaflet/maps/map_detail.html'
     context_object_name = 'map'
 
     def get_context_data(self, **kwargs):
@@ -285,6 +286,7 @@ class MapDetailView(DetailView):
 
         map_obj = _resolve_map(
             request, mapid, 'base.view_resourcebase', _PERMISSION_MSG_VIEW)
+        links = map_obj.link_set.download()
 
         if 'access_token' in request.session:
             access_token = request.session['access_token']
@@ -298,14 +300,22 @@ class MapDetailView(DetailView):
                                      access_token)
         # list all required layers
         layers = Layer.objects.all()
+
+        map_obj = _resolve_map(
+            request, mapid, 'base.view_resourcebase', _PERMISSION_MSG_VIEW)
         map_layers = MapLayer.objects.filter(
             map_id=mapid).order_by('stack_order')
+
         context = {
             'config': json.dumps(config),
             'create': False,
             'layers': layers,
+            'perms_list': get_perms(request.user, map_obj.get_self_resource()),
             'map': map_obj,
             'map_layers': map_layers,
+            'layer_bbox': map_obj.bbox_string,
+            'links': links,
+            'resource': map_obj,
             'preview': getattr(
                 settings,
                 'GEONODE_CLIENT_LAYER_PREVIEW_LIBRARY',
@@ -319,7 +329,7 @@ class MapDetailView(DetailView):
 
 class MapEmbedView(DetailView):
     model = Map
-    template_name = 'leaflet/maps/map_detail.html'
+    template_name = 'leaflet/maps/map_embed.html'
     context_object_name = 'map'
 
     def get_context_data(self, **kwargs):
@@ -345,11 +355,17 @@ class MapEmbedView(DetailView):
         # list all required layers
         map_layers = MapLayer.objects.filter(
             map_id=mapid).order_by('stack_order')
+        layers = []
+        for layer in map_layers:
+            if layer.group != 'background':
+                layers.append(layer)
+
         context = {
             'config': json.dumps(config),
             'create': False,
             'resource': map_obj,
-            'layers': map_layers,
+            'map_layers': layers,
+            'for_download': False,
             'preview': getattr(
                 settings,
                 'GEONODE_CLIENT_LAYER_PREVIEW_LIBRARY',
@@ -405,6 +421,7 @@ class MapEditView(UpdateView):
             'layers': layers,
             'map_layers': map_layers,
             'map': map_obj,
+            'layer_bbox': map_obj.bbox_string,
             'preview': getattr(
                 settings,
                 'GEONODE_CLIENT_LAYER_PREVIEW_LIBRARY',
