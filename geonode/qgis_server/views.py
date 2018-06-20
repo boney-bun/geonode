@@ -151,7 +151,8 @@ def download_map(request, mapid):
         map_id=mapid).order_by('stack_order')
     # Folder name in ZIP archive which contains the above files
     # E.g [thearchive.zip]/somefiles/file2.txt
-    zip_subdir = mapid
+    zip_subdir = [ml.name for ml in map_layers if ml.local][0]
+    # Using map name for the zip file
     zip_filename = "%s.zip" % zip_subdir
 
     # Open StringIO to grab in-memory ZIP contents
@@ -161,8 +162,8 @@ def download_map(request, mapid):
     zf = zipfile.ZipFile(s, "w")
 
     for map_layer in map_layers:
-        if 'osm' not in map_layer.layer_title and 'OpenMap' not in map_layer.layer_title:
-            layer = get_object_or_404(Layer, name=map_layer.layer_title)
+        if map_layer.local:
+            layer = get_object_or_404(Layer, alternate=map_layer.name)
             qgis_layer = get_object_or_404(QGISServerLayer, layer=layer)
             # Files (local path) to put in the .zip
             filenames = qgis_layer.files
