@@ -352,7 +352,7 @@ class QGISServerViewsTest(LiveServerTestCase):
 
         # check that QLR is added to the links
         links = map.link_set.download()
-        map_qlr_link = links.get(name='Download QLR Layer file')
+        map_qlr_link = links.get(name='QGIS layer file (.qlr)')
         self.assertIn('qlr', map_qlr_link.url)
 
         # QLR
