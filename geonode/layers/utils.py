@@ -347,7 +347,9 @@ def get_bbox(filename):
         datasource = DataSource(filename)
         layer = datasource[0]
         bbox_x0, bbox_y0, bbox_x1, bbox_y1 = layer.extent.tuple
-        srid = layer.srs.srid if layer.srs else 'EPSG:4326'
+        # eliminate default EPSG srid as it will be added when this function returned
+        srid = layer.srs.srid \
+            if layer.srs and layer.srs.srid is not None else '4326'
     elif is_raster(filename):
         gtif = gdal.Open(filename)
         gt = gtif.GetGeoTransform()
@@ -375,7 +377,8 @@ def get_bbox(filename):
         bbox_y0 = min(ext[0][1], ext[2][1])
         bbox_x1 = max(ext[0][0], ext[2][0])
         bbox_y1 = max(ext[0][1], ext[2][1])
-        srid = srs.GetAuthorityCode(None) if srs else 'EPSG:4326'
+        # eliminate default EPSG srid as it will be added when this function returned
+        srid = srs.GetAuthorityCode(None) if srs else '4326'
 
     return [bbox_x0, bbox_x1, bbox_y0, bbox_y1, "EPSG:%s" % str(srid)]
 
