@@ -344,12 +344,22 @@ def get_bbox(filename):
     bbox_x0, bbox_y0, bbox_x1, bbox_y1 = None, None, None, None
 
     if is_vector(filename):
+        # gdal's SourceData seems to be unreliable in determining EPSG code.
+        # obtain EPSG code from a prj file instead
+        prj_path = filename.split(".shp")[0] + ".prj"
+        try:
+            prj_file = open(prj_path, 'r')
+        except Exception:
+            raise Exception("A prj file can't be found. Please add prj file")
+        prj_txt = prj_file.read()
+        srs = osr.SpatialReference(wkt=prj_txt)
+        srs.AutoIdentifyEPSG()
+        epsg_code = srs.GetAuthorityCode(None)
         datasource = DataSource(filename)
         layer = datasource[0]
         bbox_x0, bbox_y0, bbox_x1, bbox_y1 = layer.extent.tuple
         # eliminate default EPSG srid as it will be added when this function returned
-        srid = layer.srs.srid \
-            if layer.srs and layer.srs.srid is not None else '4326'
+        srid = epsg_code if epsg_code else '4326'
     elif is_raster(filename):
         gtif = gdal.Open(filename)
         gt = gtif.GetGeoTransform()
