@@ -350,7 +350,7 @@ def get_bbox(filename):
         try:
             prj_file = open(prj_path, 'r')
         except Exception:
-            raise Exception("A prj file can't be found. Please add prj file")
+            raise GeoNodeException("Invalid Projection. Layer is missing CRS!")
         prj_txt = prj_file.read()
         srs = osr.SpatialReference(wkt=prj_txt)
         srs.AutoIdentifyEPSG()
