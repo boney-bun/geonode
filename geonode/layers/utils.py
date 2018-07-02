@@ -344,10 +344,22 @@ def get_bbox(filename):
     bbox_x0, bbox_y0, bbox_x1, bbox_y1 = None, None, None, None
 
     if is_vector(filename):
+        # gdal's SourceData seems to be unreliable in determining EPSG code.
+        # obtain EPSG code from a prj file instead
+        prj_path = filename.split(".shp")[0] + ".prj"
+        try:
+            prj_file = open(prj_path, 'r')
+        except Exception:
+            raise GeoNodeException("Invalid Projection. Layer is missing CRS!")
+        prj_txt = prj_file.read()
+        srs = osr.SpatialReference(wkt=prj_txt)
+        srs.AutoIdentifyEPSG()
+        epsg_code = srs.GetAuthorityCode(None)
         datasource = DataSource(filename)
         layer = datasource[0]
         bbox_x0, bbox_y0, bbox_x1, bbox_y1 = layer.extent.tuple
-        srid = layer.srs.srid if layer.srs else 'EPSG:4326'
+        # eliminate default EPSG srid as it will be added when this function returned
+        srid = epsg_code if epsg_code else '4326'
     elif is_raster(filename):
         gtif = gdal.Open(filename)
         gt = gtif.GetGeoTransform()
@@ -375,7 +387,8 @@ def get_bbox(filename):
         bbox_y0 = min(ext[0][1], ext[2][1])
         bbox_x1 = max(ext[0][0], ext[2][0])
         bbox_y1 = max(ext[0][1], ext[2][1])
-        srid = srs.GetAuthorityCode(None) if srs else 'EPSG:4326'
+        # eliminate default EPSG srid as it will be added when this function returned
+        srid = srs.GetAuthorityCode(None) if srs else '4326'
 
     return [bbox_x0, bbox_x1, bbox_y0, bbox_y1, "EPSG:%s" % str(srid)]
 
