@@ -606,12 +606,13 @@ def map_download_leaflet(request, mapid,
     }
 
     the_page = render(request, template, context=context)
+    filename = map_obj.title.replace(' ', '')
 
     response = HttpResponse(
         the_page.content, content_type="html",
         status=the_page.status_code)
     response['Content-Disposition'] = 'attachment; filename=%s.html' \
-                                      % (map_obj.title,)
+                                      % (filename,)
 
     return response
 
