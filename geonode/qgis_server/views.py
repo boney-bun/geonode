@@ -56,6 +56,7 @@ from geonode.qgis_server.models import QGISServerLayer
 from geonode.qgis_server.tasks.update import (
     create_qgis_server_thumbnail,
     cache_request)
+from pyproj import Proj, transform
 
 logger = logging.getLogger('geonode.qgis_server.views')
 
@@ -809,6 +810,21 @@ def default_qml_style(request, layername, style_name=None):
         qgis_layer = layer.qgis_layer
         qgis_layer.default_style = style
         qgis_layer.save()
+
+        # Recreate thumbnail
+        # Give thumbnail creation to celery tasks, and exit.
+        bbox_string = layer.bbox_string
+        bbox = bbox_string.split(',')
+
+        # set thumbnails use 4326, so we need to convert bbox accordingly
+        if 'EPSG:4326' not in layer.srid:
+            p1 = Proj(init=layer.srid)
+            p2 = Proj(init='epsg:4326')
+            bbox[0], bbox[1] = transform(p1, p2, bbox[0], bbox[1])
+            bbox[2], bbox[3] = transform(p1, p2, bbox[2], bbox[3])
+
+        # BBox should be in the format: [xmin,ymin,xmax,ymax], EPSG:4326
+        create_qgis_server_thumbnail.delay(layer, overwrite=True, bbox=bbox)
 
         alert_message = 'Successfully changed default style %s' % style_name
 
