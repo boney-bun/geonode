@@ -816,12 +816,6 @@ def default_qml_style(request, layername, style_name=None):
         bbox_string = layer.bbox_string
         bbox = bbox_string.split(',')
 
-        # set thumbnails use 4326, so we need to convert bbox accordingly
-        if 'EPSG:4326' not in layer.srid:
-            p1 = Proj(init=layer.srid)
-            p2 = Proj(init='epsg:4326')
-            bbox[0], bbox[1] = transform(p1, p2, bbox[0], bbox[1])
-            bbox[2], bbox[3] = transform(p1, p2, bbox[2], bbox[3])
 
         # BBox should be in the format: [xmin,ymin,xmax,ymax], EPSG:4326
         create_qgis_server_thumbnail.delay(layer, overwrite=True, bbox=bbox)
@@ -861,7 +855,9 @@ def set_thumbnail(request, layername):
             status=403)
 
     # extract bbox
-    bbox_string = request.POST['bbox']
+    # bbox from POST might have been converted into 4326.
+    # try use native bbox from the layer
+    bbox_string = layer.bbox_string if layer.bbox_string else request.POST['bbox']
     # BBox should be in the format: [xmin,ymin,xmax,ymax], EPSG:4326
     # coming from leafletjs
     bbox = bbox_string.split(',')

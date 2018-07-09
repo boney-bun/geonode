@@ -516,7 +516,32 @@ class QGISServerStyleManagerTest(LiveServerTestCase):
         default_style_url = reverse(
             'qgis_server:default-qml',
             kwargs={
-                'layername': layer.name})
+                'layername': layer.name,
+                'style_name': 'new_style'})
+
+        # Check that a new thumbnail is created
+        # check that we have remote thumbnail
+        remote_thumbnail_link = layer.link_set.get(
+            name__icontains='remote thumbnail')
+        self.assertTrue(remote_thumbnail_link.url)
+
+        # thumbnail won't generate because remote thumbnail uses public
+        # address
+        remote_thumbnail_url = remote_thumbnail_link.url
+
+        # Replace url's basename, we want to access it using django client
+        parse_result = urlparse.urlsplit(remote_thumbnail_url)
+        remote_thumbnail_url = urlparse.urlunsplit(
+            ('', '', parse_result.path, parse_result.query, ''))
+
+        response = self.client.get(remote_thumbnail_url)
+
+        thumbnail_dir = os.path.join(settings.MEDIA_ROOT, 'thumbs')
+        thumbnail_path = os.path.join(thumbnail_dir, 'layer-thumb.png')
+
+        # Check thumbnail is created
+        self.assertTrue(os.path.exists(thumbnail_path))
+        self.assertEqual(what(thumbnail_path), 'png')
 
         response = self.client.get(default_style_url)
 
