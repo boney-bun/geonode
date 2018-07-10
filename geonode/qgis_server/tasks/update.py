@@ -64,7 +64,7 @@ def create_qgis_server_thumbnail(instance, overwrite=False, bbox=None):
         # to make sure it is executed after the instance saved
         if isinstance(instance, Layer):
             # set thumbnails use 4326, so we need to convert bbox accordingly
-            if '4326' not in instance.srid: #or '4326' not in instance.srid:
+            if '4326' not in instance.srid:
                 src_srid = instance.srid
                 if len(src_srid.split(':')) < 2:
                     src_srid = 'epsg:' + src_srid

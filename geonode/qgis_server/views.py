@@ -56,7 +56,6 @@ from geonode.qgis_server.models import QGISServerLayer
 from geonode.qgis_server.tasks.update import (
     create_qgis_server_thumbnail,
     cache_request)
-from pyproj import Proj, transform
 
 logger = logging.getLogger('geonode.qgis_server.views')
 
@@ -815,7 +814,6 @@ def default_qml_style(request, layername, style_name=None):
         # Give thumbnail creation to celery tasks, and exit.
         bbox_string = layer.bbox_string
         bbox = bbox_string.split(',')
-
 
         # BBox should be in the format: [xmin,ymin,xmax,ymax], EPSG:4326
         create_qgis_server_thumbnail.delay(layer, overwrite=True, bbox=bbox)
