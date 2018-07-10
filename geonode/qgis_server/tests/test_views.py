@@ -537,7 +537,8 @@ class QGISServerStyleManagerTest(LiveServerTestCase):
         response = self.client.get(remote_thumbnail_url)
 
         thumbnail_dir = os.path.join(settings.MEDIA_ROOT, 'thumbs')
-        thumbnail_path = os.path.join(thumbnail_dir, 'layer-thumb.png')
+        thumbnail_path = os.path.join(thumbnail_dir,
+                                      'layer-%s-thumb.png' % layer.uuid)
 
         # Check thumbnail is created
         self.assertTrue(os.path.exists(thumbnail_path))
