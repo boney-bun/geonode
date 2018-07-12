@@ -516,33 +516,7 @@ class QGISServerStyleManagerTest(LiveServerTestCase):
         default_style_url = reverse(
             'qgis_server:default-qml',
             kwargs={
-                'layername': layer.name,
-                'style_name': 'new_style'})
-
-        # Check that a new thumbnail is created
-        # check that we have remote thumbnail
-        remote_thumbnail_link = layer.link_set.get(
-            name__icontains='remote thumbnail')
-        self.assertTrue(remote_thumbnail_link.url)
-
-        # thumbnail won't generate because remote thumbnail uses public
-        # address
-        remote_thumbnail_url = remote_thumbnail_link.url
-
-        # Replace url's basename, we want to access it using django client
-        parse_result = urlparse.urlsplit(remote_thumbnail_url)
-        remote_thumbnail_url = urlparse.urlunsplit(
-            ('', '', parse_result.path, parse_result.query, ''))
-
-        response = self.client.get(remote_thumbnail_url)
-
-        thumbnail_dir = os.path.join(settings.MEDIA_ROOT, 'thumbs')
-        thumbnail_path = os.path.join(thumbnail_dir,
-                                      'layer-%s-thumb.png' % layer.uuid)
-
-        # Check thumbnail is created
-        self.assertTrue(os.path.exists(thumbnail_path))
-        self.assertEqual(what(thumbnail_path), 'png')
+                'layername': layer.name})
 
         response = self.client.get(default_style_url)
 
@@ -554,6 +528,14 @@ class QGISServerStyleManagerTest(LiveServerTestCase):
 
         for key, value in expected_default_style_retval.iteritems():
             self.assertEqual(actual_default_style_retval[key], value)
+
+        # Check that a new thumbnail is created
+        thumbnail_dir = os.path.join(settings.MEDIA_ROOT, 'thumbs')
+        thumbnail_path = os.path.join(thumbnail_dir,
+                                      'layer-%s-thumb.png' % layer.uuid)
+        # Check if thumbnail is created
+        self.assertTrue(os.path.exists(thumbnail_path))
+        self.assertEqual(what(thumbnail_path), 'png')
 
         layer.delete()
 
