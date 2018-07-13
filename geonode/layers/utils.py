@@ -344,10 +344,10 @@ def get_bbox(filename):
     bbox_x0, bbox_y0, bbox_x1, bbox_y1 = None, None, None, None
 
     if is_vector(filename):
-        y_min = -85
-        y_max = 85
+        y_min = -90
+        y_max = 90
         x_min = -180
-        x_max = 85
+        x_max = 180
         datasource = DataSource(filename)
         layer = datasource[0]
         bbox_x0, bbox_y0, bbox_x1, bbox_y1 = layer.extent.tuple
@@ -356,22 +356,25 @@ def get_bbox(filename):
         prj_path = filename.split(".shp")[0] + ".prj"
         try:
             prj_file = open(prj_path, 'r')
+            prj_txt = prj_file.read()
+            prj_file.close()
         except Exception:
             raise GeoNodeException("Invalid Projection. Layer is missing CRS!")
-        prj_txt = prj_file.read()
         srs = osr.SpatialReference(wkt=prj_txt)
         srs.AutoIdentifyEPSG()
         epsg_code = srs.GetAuthorityCode(None)
-        # can't find epsg code, then check if bbox is within the WGS84 boundary
+        # can't find epsg code, then check if bbox is within the 4326 boundary
         if epsg_code is None and (x_min <= bbox_x0 <= x_max \
                                   and  x_min <= bbox_x1 <= x_max \
                                   and y_min <= bbox_y0 <= y_max \
                                   and y_min <= bbox_y1 <= y_max):
             # set default epsg code
             epsg_code = '4326'
-        else:
+        elif epsg_code is None:
             # otherwise, stop the upload process
-            raise GeoNodeException("Invalid Projection. Please use valid EPSG code")
+            raise GeoNodeException(
+                "Invalid Layers. "
+                "Needs an authoritative SRID in its CRS to be accepted")
 
         # eliminate default EPSG srid as it will be added when this function returned
         srid = epsg_code if epsg_code else '4326'
