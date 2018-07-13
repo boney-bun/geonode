@@ -922,7 +922,7 @@ def create_qgis_project(
         'FILES': files,
         'NAMES': names,
         'OVERWRITE': overwrite,
-        'REMOVEQML': True
+        'REMOVEQML': False
     }
     qgis_server_url = qgis_server_endpoint(internal)
     response = requests.get(qgis_server_url, params=query_string)
