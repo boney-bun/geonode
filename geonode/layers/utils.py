@@ -351,18 +351,9 @@ def get_bbox(filename):
         datasource = DataSource(filename)
         layer = datasource[0]
         bbox_x0, bbox_y0, bbox_x1, bbox_y1 = layer.extent.tuple
-        # gdal's SourceData seems to be unreliable in determining EPSG code.
-        # obtain EPSG code from a prj file instead
-        prj_path = filename.split(".shp")[0] + ".prj"
-        try:
-            prj_file = open(prj_path, 'r')
-            prj_txt = prj_file.read()
-            prj_file.close()
-        except Exception:
-            raise GeoNodeException("Invalid Projection. Layer is missing CRS!")
-        srs = osr.SpatialReference(wkt=prj_txt)
-        srs.AutoIdentifyEPSG()
-        epsg_code = srs.GetAuthorityCode(None)
+        srs = layer.srs
+        srs.identify_epsg()
+        epsg_code = srs.srid
         # can't find epsg code, then check if bbox is within the 4326 boundary
         if epsg_code is None and (x_min <= bbox_x0 <= x_max \
                                   and  x_min <= bbox_x1 <= x_max \
