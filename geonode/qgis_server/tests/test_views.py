@@ -529,6 +529,14 @@ class QGISServerStyleManagerTest(LiveServerTestCase):
         for key, value in expected_default_style_retval.iteritems():
             self.assertEqual(actual_default_style_retval[key], value)
 
+        # Check that a new thumbnail is created
+        thumbnail_dir = os.path.join(settings.MEDIA_ROOT, 'thumbs')
+        thumbnail_path = os.path.join(thumbnail_dir,
+                                      'layer-%s-thumb.png' % layer.uuid)
+        # Check if thumbnail is created
+        self.assertTrue(os.path.exists(thumbnail_path))
+        self.assertEqual(what(thumbnail_path), 'png')
+
         layer.delete()
 
 

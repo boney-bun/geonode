@@ -810,6 +810,14 @@ def default_qml_style(request, layername, style_name=None):
         qgis_layer.default_style = style
         qgis_layer.save()
 
+        # Recreate thumbnail
+        # Give thumbnail creation to celery tasks, and exit.
+        bbox_string = layer.bbox_string
+        bbox = bbox_string.split(',')
+
+        # BBox should be in the format: [xmin,ymin,xmax,ymax], EPSG:4326
+        create_qgis_server_thumbnail.delay(layer, overwrite=True, bbox=bbox)
+
         alert_message = 'Successfully changed default style %s' % style_name
 
         return TemplateResponse(
@@ -845,7 +853,9 @@ def set_thumbnail(request, layername):
             status=403)
 
     # extract bbox
-    bbox_string = request.POST['bbox']
+    # bbox from POST might have been converted into 4326.
+    # try use native bbox from the layer
+    bbox_string = layer.bbox_string if layer.bbox_string else request.POST['bbox']
     # BBox should be in the format: [xmin,ymin,xmax,ymax], EPSG:4326
     # coming from leafletjs
     bbox = bbox_string.split(',')

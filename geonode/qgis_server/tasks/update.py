@@ -25,7 +25,7 @@ import socket
 import requests
 from celery.task import task
 from requests.exceptions import HTTPError
-
+from pyproj import Proj, transform
 
 from geonode.layers.models import Layer
 from geonode.layers.utils import create_thumbnail
@@ -63,6 +63,15 @@ def create_qgis_server_thumbnail(instance, overwrite=False, bbox=None):
     try:
         # to make sure it is executed after the instance saved
         if isinstance(instance, Layer):
+            # set thumbnails use 4326, so we need to convert bbox accordingly
+            if '4326' not in instance.srid:
+                src_srid = instance.srid
+                if len(src_srid.split(':')) < 2:
+                    src_srid = 'epsg:' + src_srid
+                p1 = Proj(init=src_srid)
+                p2 = Proj(init='epsg:4326')
+                bbox[0], bbox[1] = transform(p1, p2, bbox[0], bbox[1])
+                bbox[2], bbox[3] = transform(p1, p2, bbox[2], bbox[3])
             thumbnail_remote_url = layer_thumbnail_url(
                 instance, bbox=bbox, internal=False)
         elif isinstance(instance, Map):
