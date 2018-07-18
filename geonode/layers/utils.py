@@ -339,7 +339,7 @@ def get_resolution(filename):
 
 def get_bbox(filename):
     """Return bbox in the format [xmin,xmax,ymin,ymax]."""
-    from django.contrib.gis.gdal import DataSource
+    from django.contrib.gis.gdal import DataSource, SRSException
     srid = None
     bbox_x0, bbox_y0, bbox_x1, bbox_y1 = None, None, None, None
 
@@ -352,7 +352,13 @@ def get_bbox(filename):
         layer = datasource[0]
         bbox_x0, bbox_y0, bbox_x1, bbox_y1 = layer.extent.tuple
         srs = layer.srs
-        srs.identify_epsg()
+        try:
+            if not srs:
+                raise GeoNodeException('Invalid Projection. Layer is missing CRS!')
+            srs.identify_epsg()
+        except SRSException:
+            pass
+            # raise GeoNodeException('Unsupported SRS.')
         epsg_code = srs.srid
         # can't find epsg code, then check if bbox is within the 4326 boundary
         if epsg_code is None and (x_min <= bbox_x0 <= x_max \
