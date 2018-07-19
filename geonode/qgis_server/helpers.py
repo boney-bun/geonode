@@ -347,7 +347,8 @@ def layer_thumbnail_url(instance, style=None, bbox=None, internal=True):
         raise
 
     qgis_project = qgis_layer.qgis_project_path
-    layers = instance.name
+    layers = 'osm,'
+    layers += instance.name
 
     if not style:
         style = 'default'
