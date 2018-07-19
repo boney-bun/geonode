@@ -347,6 +347,7 @@ def layer_thumbnail_url(instance, style=None, bbox=None, internal=True):
         raise
 
     qgis_project = qgis_layer.qgis_project_path
+    # add osm as background for the thumbnail
     layers = 'osm,'
     layers += instance.name
 
@@ -889,10 +890,13 @@ def create_qgis_project(
         Public url will be served by Django Geonode (proxified).
     :type internal: bool
     """
+    basemap = None
     if isinstance(layer, Layer):
         qgis_layer = QGISServerLayer.objects.get(layer=layer)
         files = qgis_layer.base_layer_path
         names = layer.name
+        # add basemap to qgs project
+        basemap = 'type=xyz&url=http://tile.osm.org/{z}/{x}/{y}.png?layers=osm;osm'
         logger.debug('File %s is exists: %s' % (
             files, str(os.path.exists(files))
         ))
@@ -923,7 +927,8 @@ def create_qgis_project(
         'FILES': files,
         'NAMES': names,
         'OVERWRITE': overwrite,
-        'REMOVEQML': False
+        'REMOVEQML': False,
+        'BASEMAP': basemap
     }
     qgis_server_url = qgis_server_endpoint(internal)
     response = requests.get(qgis_server_url, params=query_string)
