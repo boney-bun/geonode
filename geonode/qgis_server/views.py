@@ -168,8 +168,9 @@ def download_map(request, mapid):
             # Files (local path) to put in the .zip
             filenames = qgis_layer.files
             # Exclude qgis project files, because it contains server specific path
-            filenames = [f for f in filenames if f.endswith('.asc') or
-                         f.endswith('.shp') or f.endswith('.tif')]
+            # kartoza/geonode#299: we would like to include all project files
+#            filenames = [f for f in filenames if f.endswith('.asc') or
+#                         f.endswith('.shp') or f.endswith('.tif')]
 
             for fpath in filenames:
                 # Calculate path for file in zip
