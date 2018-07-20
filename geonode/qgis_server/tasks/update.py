@@ -63,6 +63,10 @@ def create_qgis_server_thumbnail(instance, overwrite=False, bbox=None):
     try:
         # to make sure it is executed after the instance saved
         if isinstance(instance, Layer):
+            # check if bbox is empty
+            if bbox is None:
+                bbox = instance.bbox_string.split(',')
+                bbox = [float(s) for s in bbox]
             # set thumbnails use 4326, so we need to convert bbox accordingly
             if '4326' not in instance.srid:
                 src_srid = instance.srid
