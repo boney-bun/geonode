@@ -151,7 +151,8 @@ def download_map(request, mapid):
         map_id=mapid).order_by('stack_order')
     # Folder name in ZIP archive which contains the above files
     # E.g [thearchive.zip]/somefiles/file2.txt
-    zip_subdir = [ml.name for ml in map_layers if ml.local][0]
+    zip_subdir = [ml.layer_title for ml in map_layers if ml.local][0]
+    zip_subdir = re.sub('[-. ]', '', zip_subdir)
     # Using map name for the zip file
     zip_filename = "%s.zip" % zip_subdir
 
@@ -168,9 +169,8 @@ def download_map(request, mapid):
             # Files (local path) to put in the .zip
             filenames = qgis_layer.files
             # Exclude qgis project files, because it contains server specific path
-            # kartoza/geonode#299: we would like to include all project files
-#            filenames = [f for f in filenames if f.endswith('.asc') or
-#                         f.endswith('.shp') or f.endswith('.tif')]
+            # kartoza/geonode#299: we would like to include all project files, except qgs
+            filenames = [f for f in filenames if not f.endswith('.qgs')]
 
             for fpath in filenames:
                 # Calculate path for file in zip
@@ -185,8 +185,12 @@ def download_map(request, mapid):
     zf.close()
 
     # Grab ZIP file from in-memory, make response with correct MIME-type
-    resp = HttpResponse(
-        s.getvalue(), content_type="application/x-zip-compressed")
+    try:
+        resp = HttpResponse(
+            s.getvalue(), content_type="application/x-zip-compressed")
+    # TODO: we expect a MemoryError on downloading huge files
+    except Exception as e:
+        return HttpResponse("Sorry, the files are too big: %s" % e, status=500)
     # ..and correct content-disposition
     resp['Content-Disposition'] = 'attachment; filename=%s' % zip_filename
 
