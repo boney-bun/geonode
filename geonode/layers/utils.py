@@ -361,9 +361,9 @@ def get_bbox(filename):
             # raise GeoNodeException('Unsupported SRS.')
         epsg_code = srs.srid
         # can't find epsg code, then check if bbox is within the 4326 boundary
-        if epsg_code is None and (x_min <= bbox_x0 <= x_max \
-                                  and  x_min <= bbox_x1 <= x_max \
-                                  and y_min <= bbox_y0 <= y_max \
+        if epsg_code is None and (x_min <= bbox_x0 <= x_max
+                                  and x_min <= bbox_x1 <= x_max
+                                  and y_min <= bbox_y0 <= y_max
                                   and y_min <= bbox_y1 <= y_max):
             # set default epsg code
             epsg_code = '4326'
