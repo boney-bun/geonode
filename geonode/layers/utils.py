@@ -362,9 +362,9 @@ def get_bbox(filename):
         epsg_code = srs.srid
         # can't find epsg code, then check if bbox is within the 4326 boundary
         if epsg_code is None and (x_min <= bbox_x0 <= x_max and
-                                    x_min <= bbox_x1 <= x_max and
-                                    y_min <= bbox_y0 <= y_max and
-                                    y_min <= bbox_y1 <= y_max):
+                                  x_min <= bbox_x1 <= x_max and
+                                  y_min <= bbox_y0 <= y_max and
+                                  y_min <= bbox_y1 <= y_max):
             # set default epsg code
             epsg_code = '4326'
         elif epsg_code is None:
