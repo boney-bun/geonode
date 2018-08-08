@@ -33,6 +33,7 @@ from osgeo import gdal, osr
 
 # Django functionality
 from django.contrib.auth import get_user_model
+from django.contrib.gis.gdal import DataSource, SRSException
 from django.template.defaultfilters import slugify
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.files.storage import default_storage as storage
@@ -338,27 +339,36 @@ def get_resolution(filename):
 
 
 def get_bbox(filename):
-    """Return bbox in the format [xmin,xmax,ymin,ymax]."""
-    from django.contrib.gis.gdal import DataSource
+    """Return bbox in the format [xmin,xmax,ymin,ymax, 'EPSG:code']."""
     srid = None
     bbox_x0, bbox_y0, bbox_x1, bbox_y1 = None, None, None, None
 
     if is_vector(filename):
-        # gdal's SourceData seems to be unreliable in determining EPSG code.
-        # obtain EPSG code from a prj file instead
-        prj_path = filename.split(".shp")[0] + ".prj"
-        try:
-            prj_file = open(prj_path, 'r')
-        except Exception:
-            raise GeoNodeException("Invalid Projection. Layer is missing CRS!")
-        prj_txt = prj_file.read()
-        srs = osr.SpatialReference(wkt=prj_txt)
-        srs.AutoIdentifyEPSG()
-        epsg_code = srs.GetAuthorityCode(None)
         datasource = DataSource(filename)
+        if datasource.layer_count == 0:
+            raise GeoNodeException(
+                'Datasource {0} does not contain any layer'.format(filename))
         layer = datasource[0]
+        srs = layer.srs
+        if not srs:
+            raise GeoNodeException(
+                'Invalid Projection. Layer is missing CRS!')
+        try:
+            srs.identify_epsg()
+        except SRSException as e:
+            # check if it still has some srid
+            if not srs.srid:
+                # if it is still empty, GDAL can't guess the SRID.
+                # we may need to ask user to fix projection.
+                raise
+            # SRID will be corrected by GeoServer or QGIS
+            logger.debug(e)
+
+        epsg_code = srs.srid
         bbox_x0, bbox_y0, bbox_x1, bbox_y1 = layer.extent.tuple
-        # eliminate default EPSG srid as it will be added when this function returned
+
+        # eliminate default EPSG srid as it will be added when this function
+        # returned
         srid = epsg_code if epsg_code else '4326'
     elif is_raster(filename):
         gtif = gdal.Open(filename)

@@ -471,6 +471,7 @@ class GeoNodeMapTest(TestCase):
                 uploaded.metadata_xml = thelayer_metadata
                 regions_resolved, regions_unresolved = resolve_regions(regions)
                 self.assertIsNotNone(regions_resolved)
+
         # except:
         #     # Sometimes failes with the message:
         #     # UploadError: Could not save the layer air_runways,
