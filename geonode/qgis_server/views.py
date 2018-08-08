@@ -189,7 +189,7 @@ def download_map(request, mapid):
         resp = HttpResponse(
             s.getvalue(), content_type="application/x-zip-compressed")
     # TODO: we expect a MemoryError on downloading huge files
-    except Exception as e:
+    except MemoryError as e:
         return HttpResponse("Sorry, the files are too big: %s" % e, status=500)
     # ..and correct content-disposition
     resp['Content-Disposition'] = 'attachment; filename=%s' % zip_filename
