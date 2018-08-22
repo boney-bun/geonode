@@ -818,10 +818,21 @@ def default_qml_style(request, layername, style_name=None):
         # Recreate thumbnail
         # Give thumbnail creation to celery tasks, and exit.
         bbox_string = layer.bbox_string
-        bbox = bbox_string.split(',')
+        if bbox_string:
+            bbox = bbox_string.split(',')
+            bbox = [float(s) for s in bbox]
+            bbox_srid = layer.bbox[-1]
+        else:
+            # Let it use default extent
+            bbox = None
+            bbox_srid = None
 
         # BBox should be in the format: [xmin,ymin,xmax,ymax], EPSG:4326
-        create_qgis_server_thumbnail.delay(layer, overwrite=True, bbox=bbox)
+        create_qgis_server_thumbnail.delay(
+            layer,
+            overwrite=True,
+            bbox=bbox,
+            bbox_srid=bbox_srid)
 
         alert_message = 'Successfully changed default style %s' % style_name
 
