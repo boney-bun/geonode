@@ -341,7 +341,8 @@ class QGISServerViewsTest(LiveServerTestCase):
                         '10.100000000000000,' \
                         '125.599999999999994,' \
                         '10.100000000000000'
-        self.assertEqual(uploaded.bbox_string, expected_bbox)
+        self.assertAlmostEqual(uploaded.bbox_string, expected_bbox)
+
 
     @on_ogc_backend(qgis_server.BACKEND_PACKAGE)
     def test_download_map_qlr(self):
