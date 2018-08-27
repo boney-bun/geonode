@@ -337,12 +337,14 @@ class QGISServerViewsTest(LiveServerTestCase):
         # check if file is uploaded
         self.assertTrue(uploaded)
         # check if bbox exist
-        expected_bbox = '125.599999999999994,' \
-                        '10.100000000000000,' \
-                        '125.599999999999994,' \
-                        '10.100000000000000'
-        self.assertAlmostEqual(uploaded.bbox_string, expected_bbox)
-
+        expected_bbox = [125.599999999999994,
+                         10.100000000000000,
+                         125.599999999999994,
+                         10.100000000000000]
+        uploaded_bbox = [float(f) for f in uploaded.bbox_string.split(',')]
+        # self.assertAlmostEqual(uploaded.bbox_string, expected_bbox, 5)
+        for key, value in uploaded_bbox:
+            self.assertAlmostEqual(uploaded_bbox[key], expected_bbox[key], 5)
 
     @on_ogc_backend(qgis_server.BACKEND_PACKAGE)
     def test_download_map_qlr(self):
