@@ -22,6 +22,7 @@ from __future__ import absolute_import
 import logging
 import os
 import shutil
+import requests
 
 from django.contrib.gis.gdal import SRSException, DataSource, CoordTransform, \
     SpatialReference, OGRGeometry
@@ -38,7 +39,7 @@ from geonode.layers.utils import is_vector, is_raster
 from geonode.maps.models import Map, MapLayer
 from geonode.qgis_server.gis_tools import set_attributes
 from geonode.qgis_server.helpers import tile_url_format, create_qgis_project, \
-    style_list
+    style_list, style_add_url, style_set_default_url
 from geonode.qgis_server.models import QGISServerLayer, QGISServerMap
 from geonode.qgis_server.tasks.update import create_qgis_server_thumbnail
 from geonode.qgis_server.xml_utilities import update_xml
@@ -581,6 +582,22 @@ def qgis_server_post_save_map(instance, sender, **kwargs):
     logger.debug(
         'Creating the QGIS Project : %s -> %s' % (
             qgis_map.qgis_project_path, response.content))
+
+    # add style to qgis project
+    for layer in layers:
+        qgis_layer = layer.qgis_layer
+        default_style = qgis_layer.default_style
+        with open(qgis_layer.qml_path, 'w') as qml_file:
+            qml_file.write(default_style.body)
+        url_add_style = style_add_url(layer, layer.name, qgis_project_path=qgis_map.qgis_project_path)
+        response = requests.get(url_add_style)
+        if response.status_code != 200:
+            logger.debug('Unable to add new style to qgs file')
+
+        url_set_default = style_set_default_url(layer, layer.name, qgis_project_path=qgis_map.qgis_project_path)
+        response = requests.get(url_set_default)
+        if response.status_code != 200:
+            logger.debug('Unable to set default to the new style in qgs')
 
     # Generate map thumbnail
     create_qgis_server_thumbnail.delay(

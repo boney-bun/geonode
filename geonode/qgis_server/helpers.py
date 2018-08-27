@@ -631,7 +631,7 @@ def wms_get_capabilities_url(layer=None, internal=True):
     return url
 
 
-def style_get_url(layer, style_name, internal=True):
+def style_get_url(layer, style_name, qgis_project_path=None, internal=True):
     """Get QGIS Server style as xml.
 
     :param layer: Layer to inspect
@@ -654,7 +654,8 @@ def style_get_url(layer, style_name, internal=True):
         logger.debug(msg)
         raise
 
-    qgis_project_path = qgis_layer.qgis_project_path
+    if not qgis_project_path:
+        qgis_project_path = qgis_layer.qgis_project_path
 
     query_string = {
         'PROJECT': qgis_project_path,
@@ -669,7 +670,7 @@ def style_get_url(layer, style_name, internal=True):
     return url
 
 
-def style_add_url(layer, style_name, internal=True):
+def style_add_url(layer, style_name, qgis_project_path=None, internal=True):
     """Add QGIS Server style to QGIS Project.
 
     This style file is stored on qml LayerFile in upload_session.
@@ -695,7 +696,8 @@ def style_add_url(layer, style_name, internal=True):
         logger.debug(msg)
         raise
 
-    qgis_project_path = qgis_layer.qgis_project_path
+    if not qgis_project_path:
+        qgis_project_path = qgis_layer.qgis_project_path
 
     # QML File is taken from uploaded file
     query_string = {
@@ -713,7 +715,7 @@ def style_add_url(layer, style_name, internal=True):
     return url
 
 
-def style_remove_url(layer, style_name, internal=True):
+def style_remove_url(layer, style_name, qgis_project_path=None, internal=True):
     """Remove QGIS Server style from QGIS Project.
 
     :param layer: Layer to inspect
@@ -736,7 +738,8 @@ def style_remove_url(layer, style_name, internal=True):
         logger.debug(msg)
         raise
 
-    qgis_project_path = qgis_layer.qgis_project_path
+    if not qgis_project_path:
+        qgis_project_path = qgis_layer.qgis_project_path
 
     query_string = {
         'SERVICE': 'STYLEMANAGER',
@@ -751,7 +754,7 @@ def style_remove_url(layer, style_name, internal=True):
     return url
 
 
-def style_set_default_url(layer, style_name, internal=True):
+def style_set_default_url(layer, style_name, qgis_project_path=None, internal=True):
     """Remove QGIS Server style from QGIS Project.
 
     :param layer: Layer to inspect
@@ -774,7 +777,8 @@ def style_set_default_url(layer, style_name, internal=True):
         logger.debug(msg)
         raise
 
-    qgis_project_path = qgis_layer.qgis_project_path
+    if not qgis_project_path:
+        qgis_project_path = qgis_layer.qgis_project_path
 
     query_string = {
         'SERVICE': 'STYLEMANAGER',
@@ -957,7 +961,7 @@ def create_qgis_project(
         'SOURCES': files,
         'NAMES': names,
         'OVERWRITE': overwrite,
-        'REMOVEQML': True
+        'REMOVEQML': 'TRUE'
     }
     qgis_server_url = qgis_server_endpoint(internal)
     response = requests.get(qgis_server_url, params=query_string)
