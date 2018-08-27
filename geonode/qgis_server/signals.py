@@ -589,12 +589,18 @@ def qgis_server_post_save_map(instance, sender, **kwargs):
         default_style = qgis_layer.default_style
         with open(qgis_layer.qml_path, 'w') as qml_file:
             qml_file.write(default_style.body)
-        url_add_style = style_add_url(layer, layer.name, qgis_project_path=qgis_map.qgis_project_path)
+        url_add_style = style_add_url(
+            layer,
+            layer.name,
+            qgis_project_path=qgis_map.qgis_project_path)
         response = requests.get(url_add_style)
         if response.status_code != 200:
             logger.debug('Unable to add new style to qgs file')
 
-        url_set_default = style_set_default_url(layer, layer.name, qgis_project_path=qgis_map.qgis_project_path)
+        url_set_default = style_set_default_url(
+            layer,
+            layer.name,
+            qgis_project_path=qgis_map.qgis_project_path)
         response = requests.get(url_set_default)
         if response.status_code != 200:
             logger.debug('Unable to set default to the new style in qgs')
