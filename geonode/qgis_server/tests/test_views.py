@@ -343,7 +343,7 @@ class QGISServerViewsTest(LiveServerTestCase):
                          10.100000000000000]
         uploaded_bbox = [float(f) for f in uploaded.bbox_string.split(',')]
         # self.assertAlmostEqual(uploaded.bbox_string, expected_bbox, 5)
-        for key, value in uploaded_bbox:
+        for key in range(len(uploaded_bbox)):
             self.assertAlmostEqual(uploaded_bbox[key], expected_bbox[key], 5)
 
     @on_ogc_backend(qgis_server.BACKEND_PACKAGE)
