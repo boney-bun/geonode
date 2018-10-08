@@ -326,6 +326,27 @@ class QGISServerViewsTest(LiveServerTestCase):
         vector_layer.delete()
 
     @on_ogc_backend(qgis_server.BACKEND_PACKAGE)
+    def test_upload_geojson(self):
+        """Test we can upload a geojson layer and check bbox"""
+        file_path = os.path.realpath(__file__)
+        test_dir = os.path.dirname(file_path)
+        # a geojson sample is taken from http://geojson.org
+        geojson_file_path = os.path.join(test_dir, 'data', 'point.geojson')
+
+        uploaded = file_upload(geojson_file_path)
+        # check if file is uploaded
+        self.assertTrue(uploaded)
+        # check if bbox exist
+        expected_bbox = [125.599999999999994,
+                         10.100000000000000,
+                         125.599999999999994,
+                         10.100000000000000]
+        uploaded_bbox = [float(f) for f in uploaded.bbox_string.split(',')]
+        # self.assertAlmostEqual(uploaded.bbox_string, expected_bbox, 5)
+        for key in range(len(uploaded_bbox)):
+            self.assertAlmostEqual(uploaded_bbox[key], expected_bbox[key], 5)
+
+    @on_ogc_backend(qgis_server.BACKEND_PACKAGE)
     def test_download_map_qlr(self):
         """Test download QLR file for a map"""
         # 2 layers to be added to the map
