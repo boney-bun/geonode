@@ -21,6 +21,7 @@ import json
 import requests
 import math
 import logging
+import re
 
 from django.conf import settings
 from django.views.generic import CreateView, DetailView, UpdateView
@@ -569,8 +570,10 @@ def map_download_qlr(request, mapid):
         fwd_request.content,
         content_type="application/x-qgis-layer-definition",
         status=fwd_request.status_code)
+    # removes dash, dot, brackets, and space from the name
+    title = re.sub('[()-. ]', '', map_obj.title)
     response['Content-Disposition'] = 'attachment; filename=%s.qlr' \
-                                      % map_obj.title
+                                      % title
 
     return response
 
