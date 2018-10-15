@@ -640,6 +640,9 @@ def style_get_url(layer, style_name, qgis_project_path=None, internal=True):
     :param style_name: Style name as given by QGIS Server
     :type style_name: str
 
+    :param qgis_project_path: path to qgis project file (.qgs)
+    :type qgis_project_path: str
+
     :param internal: Flag to switch between public url and internal url.
         Public url will be served by Django Geonode (proxified).
     :type internal: bool
@@ -681,6 +684,9 @@ def style_add_url(layer, style_name, qgis_project_path=None, internal=True):
 
     :param style_name: Style name as given by QGIS Server
     :type style_name: str
+
+    :param qgis_project_path: path to qgis project file (.qgs)
+    :type qgis_project_path: str
 
     :param internal: Flag to switch between public url and internal url.
         Public url will be served by Django Geonode (proxified).
@@ -724,6 +730,9 @@ def style_remove_url(layer, style_name, qgis_project_path=None, internal=True):
     :param style_name: Style name as given by QGIS Server
     :type style_name: str
 
+    :param qgis_project_path: path to qgis project file (.qgs)
+    :type qgis_project_path: str
+
     :param internal: Flag to switch between public url and internal url.
         Public url will be served by Django Geonode (proxified).
     :type internal: bool
@@ -762,6 +771,9 @@ def style_set_default_url(layer, style_name, qgis_project_path=None, internal=Tr
 
     :param style_name: Style name as given by QGIS Server
     :type style_name: str
+
+    :param qgis_project_path: path to qgis project file (.qgs)
+    :type qgis_project_path: str
 
     :param internal: Flag to switch between public url and internal url.
         Public url will be served by Django Geonode (proxified).
