@@ -278,17 +278,19 @@ class QGISServerViewsTest(LiveServerTestCase):
             namespaces={'wms': 'http://www.opengis.net/wms'})
         # We have the basemap layer and the layer itself
         self.assertEqual(len(layer_xml), 2)
-        self.assertEqual(layer_xml[0].text, 'basemap')
-        self.assertEqual(layer_xml[1].text, uploaded.name)
+        layer_names = [l.text for l in layer_xml]
+        self.assertIn('basemap', layer_names)
+        self.assertIn(uploaded.name, layer_names)
         # GetLegendGraphic request returned must be valid
         layer_xml = root.xpath(
             'wms:Capability/wms:Layer/'
-            'wms:Layer/wms:Style/wms:LegendURL/wms:OnlineResource',
+            'wms:Layer[wms:Name="{0}"]/wms:Style/'
+            'wms:LegendURL/wms:OnlineResource'.format(uploaded.name),
             namespaces={
                 'xlink': 'http://www.w3.org/1999/xlink',
                 'wms': 'http://www.opengis.net/wms'
             })
-        legend_url = layer_xml[1].attrib[
+        legend_url = layer_xml[0].attrib[
             '{http://www.w3.org/1999/xlink}href']
 
         response = self.client.get(legend_url)
@@ -301,6 +303,33 @@ class QGISServerViewsTest(LiveServerTestCase):
             uploaded, internal=False))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(get_capabilities_content, response.content)
+
+        # Check that saving twice doesn't ruin get capabilities
+        uploaded.save()
+        response = requests.get(wms_get_capabilities_url(
+            uploaded, internal=False))
+        self.assertEqual(response.status_code, 200)
+        response_content = response.content
+
+        response_root = etree.fromstring(response_content)
+        response_layer_xml = response_root.xpath(
+            'wms:Capability/wms:Layer/'
+            'wms:Layer[wms:Name="{0}"]'.format(uploaded.name),
+            namespaces={
+                'xlink': 'http://www.w3.org/1999/xlink',
+                'wms': 'http://www.opengis.net/wms'
+            })
+        layer_xml = root.xpath(
+            'wms:Capability/wms:Layer/'
+            'wms:Layer[wms:Name="{0}"]'.format(uploaded.name),
+            namespaces={
+                'xlink': 'http://www.w3.org/1999/xlink',
+                'wms': 'http://www.opengis.net/wms'
+            })
+
+        self.assertXMLEqual(
+            etree.tostring(layer_xml[0]),
+            etree.tostring(response_layer_xml[0]))
 
         # WMS GetMap
         query_string = {
@@ -324,6 +353,27 @@ class QGISServerViewsTest(LiveServerTestCase):
         # End of the test, we should remove every files related to the test.
         uploaded.delete()
         vector_layer.delete()
+
+    @on_ogc_backend(qgis_server.BACKEND_PACKAGE)
+    def test_upload_geojson(self):
+        """Test we can upload a geojson layer and check bbox"""
+        file_path = os.path.realpath(__file__)
+        test_dir = os.path.dirname(file_path)
+        # a geojson sample is taken from http://geojson.org
+        geojson_file_path = os.path.join(test_dir, 'data', 'point.geojson')
+
+        uploaded = file_upload(geojson_file_path)
+        # check if file is uploaded
+        self.assertTrue(uploaded)
+        # check if bbox exist
+        expected_bbox = [125.599999999999994,
+                         10.100000000000000,
+                         125.599999999999994,
+                         10.100000000000000]
+        uploaded_bbox = [float(f) for f in uploaded.bbox_string.split(',')]
+        # self.assertAlmostEqual(uploaded.bbox_string, expected_bbox, 5)
+        for key in range(len(uploaded_bbox)):
+            self.assertAlmostEqual(uploaded_bbox[key], expected_bbox[key], 5)
 
     @on_ogc_backend(qgis_server.BACKEND_PACKAGE)
     def test_download_map_qlr(self):

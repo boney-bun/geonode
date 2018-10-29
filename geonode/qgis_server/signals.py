@@ -22,10 +22,12 @@ from __future__ import absolute_import
 import logging
 import os
 import shutil
+import requests
 
-from django.contrib.gis.gdal import SRSException, DataSource, CoordTransform, \
-    SpatialReference, OGRGeometry
 from django.conf import settings
+from django.contrib.gis.gdal import (
+    SRSException, DataSource, CoordTransform,
+    SpatialReference, OGRGeometry, GDALRaster)
 from django.core.urlresolvers import reverse
 from django.db.models import signals
 from django.dispatch import Signal
@@ -37,8 +39,12 @@ from geonode.layers.models import Layer, LayerFile
 from geonode.layers.utils import is_vector, is_raster
 from geonode.maps.models import Map, MapLayer
 from geonode.qgis_server.gis_tools import set_attributes
-from geonode.qgis_server.helpers import tile_url_format, create_qgis_project, \
-    style_list
+from geonode.qgis_server.helpers import (
+    tile_url_format,
+    create_qgis_project,
+    style_list,
+    style_add_url,
+    style_set_default_url)
 from geonode.qgis_server.models import QGISServerLayer, QGISServerMap
 from geonode.qgis_server.tasks.update import create_qgis_server_thumbnail
 from geonode.qgis_server.xml_utilities import update_xml
@@ -161,31 +167,35 @@ def qgis_server_post_save(instance, sender, **kwargs):
 
     # Transform bounds to EPSG:4326 to be used by leaflet.
     skip_bound_transform = False
-    if is_vector_layer:
-        try:
+    try:
+        srid_string = None
+        if is_vector_layer:
             # Try to get bbox again but handle exceptions
             datasource = DataSource(geonode_layer_path)
             layer = datasource[0]
             srs = layer.srs
             srs.identify_epsg()
             srid_string = 'EPSG:{0}'.format(srs.srid)
-            if srid_string == instance.srid:
-                # We have a proper srid here
-                skip_bound_transform = True
-        except SRSException as e:
-            # GDAL can't find matching EPSG code
-            # We will let QGIS handle on the fly projection
-            # However, we need bounds in EPSG:4326 to display in leaflet
-            logger.exception(e)
+        elif is_raster_layer:
+            rst = GDALRaster(geonode_layer_path)
+            srs = rst.srs
+            srs.identify_epsg()
+            srid_string = 'EPSG:{0}'.format(srs.srid)
 
-        except Exception as e:
-            logger.debug("Can't retrieve projection: {layer}".format(
-                layer=geonode_layer_path))
-            logger.exception(e)
-            # Can not transform bounds if we don't have projection
+        if srid_string == instance.srid:
+            # We have a proper srid here
             skip_bound_transform = True
-    elif is_raster_layer:
-        srs = SpatialReference(instance.srid)
+    except SRSException as e:
+        # GDAL can't find matching EPSG code
+        # We will let QGIS handle on the fly projection
+        # However, we need bounds in EPSG:4326 to display in leaflet
+        logger.exception(e)
+    except Exception as e:
+        logger.debug("Can't retrieve projection: {layer}".format(
+            layer=geonode_layer_path))
+        logger.exception(e)
+        # Can not transform bounds if we don't have projection
+        skip_bound_transform = True
 
     # Transform bounds to EPSG:4326 when we have undefined projection
     if not skip_bound_transform:
@@ -196,7 +206,7 @@ def qgis_server_post_save(instance, sender, **kwargs):
         coord_transform = CoordTransform(srs, SpatialReference('EPSG:4326'))
         bound_geom.transform(coord_transform)
         # update bounds info
-        Layer.objects.update(
+        Layer.objects.filter(id=instance.id).update(
             srid='EPSG:4326',
             bbox_x0=bound_geom.envelope.min_x,
             bbox_x1=bound_geom.envelope.max_x,
@@ -581,6 +591,28 @@ def qgis_server_post_save_map(instance, sender, **kwargs):
     logger.debug(
         'Creating the QGIS Project : %s -> %s' % (
             qgis_map.qgis_project_path, response.content))
+
+    # add style to qgis project
+    for layer in layers:
+        qgis_layer = layer.qgis_layer
+        default_style = qgis_layer.default_style
+        with open(qgis_layer.qml_path, 'w') as qml_file:
+            qml_file.write(default_style.body)
+        url_add_style = style_add_url(
+            layer,
+            layer.name,
+            qgis_project_path=qgis_map.qgis_project_path)
+        response = requests.get(url_add_style)
+        if response.status_code != 200:
+            logger.debug('Unable to add new style to qgs file')
+
+        url_set_default = style_set_default_url(
+            layer,
+            layer.name,
+            qgis_project_path=qgis_map.qgis_project_path)
+        response = requests.get(url_set_default)
+        if response.status_code != 200:
+            logger.debug('Unable to set default to the new style in qgs')
 
     # Generate map thumbnail
     create_qgis_server_thumbnail.delay(

@@ -28,6 +28,8 @@ from imghdr import what as image_format
 import re
 
 import datetime
+
+import errno
 import requests
 import shutil
 from django.conf import settings
@@ -80,8 +82,9 @@ def download_zip(request, layername):
     # Folder name in ZIP archive which contains the above files
     # E.g [thearchive.zip]/somefiles/file2.txt
     zip_subdir = layer.name
+    # removes dash, dot, brackets, and space from the name
+    zip_subdir = re.sub('[()-. ]', '', zip_subdir)
     zip_filename = "%s.zip" % zip_subdir
-
     # Open StringIO to grab in-memory ZIP contents
     s = StringIO.StringIO()
 
@@ -129,6 +132,8 @@ def download_qgs(request, layername):
         layer_title = layer.title
     else:
         layer_title = layer.name
+    # removes dash, dot, brackets, and space from the name
+    layer_title = re.sub('[()-. ]', '', layer_title)
 
     response = HttpResponse(
         result.content, content_type="application/x-qgis-project",
@@ -152,7 +157,8 @@ def download_map(request, mapid):
     # Folder name in ZIP archive which contains the above files
     # E.g [thearchive.zip]/somefiles/file2.txt
     zip_subdir = [ml.layer_title for ml in map_layers if ml.local][0]
-    zip_subdir = re.sub('[-. ]', '', zip_subdir)
+    # removes dash, dot, brackets, and space from the name
+    zip_subdir = re.sub('[()-. ]', '', zip_subdir)
     # Using map name for the zip file
     zip_filename = "%s.zip" % zip_subdir
 
@@ -233,8 +239,14 @@ def legend(request, layername, layertitle=False, style=None):
 
     if not os.path.exists(legend_filename):
 
-        if not os.path.exists(os.path.dirname(legend_filename)):
-            os.makedirs(os.path.dirname(legend_filename))
+        try:
+            if not os.path.exists(os.path.dirname(legend_filename)):
+                os.makedirs(os.path.dirname(legend_filename))
+        except OSError as e:
+            # In case race condition happens because client attempts to access
+            # multiple tiles
+            if e.errno != errno.EEXIST:
+                raise
 
         url = legend_url(layer, layertitle, style=style, internal=True)
 
@@ -311,6 +323,7 @@ def tile(request, layername, z, x, y, style=None):
         # generate style cache
         if not qgis_layer.default_style:
             try:
+
                 style_list(layer, internal=False)
             except:
                 print 'Failed to fetch styles'
@@ -325,8 +338,14 @@ def tile(request, layername, z, x, y, style=None):
 
     if not os.path.exists(tile_filename):
 
-        if not os.path.exists(os.path.dirname(tile_filename)):
-            os.makedirs(os.path.dirname(tile_filename))
+        try:
+            if not os.path.exists(os.path.dirname(tile_filename)):
+                os.makedirs(os.path.dirname(tile_filename))
+        except OSError as e:
+            # In case race condition happens because client attempts to access
+            # multiple tiles
+            if e.errno != errno.EEXIST:
+                raise
 
         # Use internal url
         url = tile_url(layer, z, x, y, style=style, internal=True)
@@ -913,7 +932,8 @@ def download_qlr(request, layername):
         layer_title = layer.title
     else:
         layer_title = layer.name
-
+    # removes dash, dot, brackets, and space from the name
+    layer_title = re.sub('[()-. ]', '', layer_title)
     result = requests.get(url)
     response = HttpResponse(
         result.content,
