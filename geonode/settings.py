@@ -965,7 +965,7 @@ DOWNLOAD_FORMATS_METADATA = [
     'Atom', 'DIF', 'Dublin Core', 'ebRIM', 'FGDC', 'ISO',
 ]
 DOWNLOAD_FORMATS_VECTOR = [
-    'JPEG', 'PDF', 'PNG', 'Zipped Shapefile', 'GML 2.0', 'GML 3.1.1', 'CSV',
+    'JPEG', 'PDF', 'PNG', 'Zipped Vector Files', 'GML 2.0', 'GML 3.1.1', 'CSV',
     'Excel', 'GeoJSON', 'KML', 'View in Google Earth', 'Tiles',
     'QGIS layer file (.qlr)',
     'QGIS project file (.qgs)',
