@@ -564,29 +564,45 @@ class QGISServerStyleManagerTest(LiveServerTestCase):
             set(expected_list_style),
             set([style.name for style in actual_list_style]))
 
-        # Check new default, namely: new_style
+        # Check new default
+        default_style_url = reverse(
+            'qgis_server:default-qml',
+            kwargs={
+                'layername': layer.name})
+
+        response = self.client.get(default_style_url)
+
+        self.assertEqual(response.status_code, 200)
+
+        expected_default_style_retval = {
+            'name': 'new_style',
+        }
+        actual_default_style_retval = json.loads(response.content)
+
+        # verify the new list is added into list of styles
+        for key, value in expected_default_style_retval.iteritems():
+            self.assertEqual(actual_default_style_retval[key], value)
+
+        # Set new_style as default
         default_style_url = reverse(
             'qgis_server:default-qml',
             kwargs={
                 'layername': layer.name,
                 'style_name': 'new_style'})
 
+        # Check new default
         response = self.client.post(default_style_url)
-
-        self.assertEqual(response.status_code, 200)
         qgis_server_layer = response.context_data['resource'].qgis_layer
+        # verify the layer's default style is new_style
         self.assertEqual(qgis_server_layer.default_style.name, 'new_style')
 
         # Check that a new thumbnail is created
-        # can't verify the thumbs path, check the alert message instead
-        alert_message = 'Successfully changed default style new_style'
-        self.assertEqual(response.context_data['alert_message'], alert_message)
-        # thumbnail_dir = os.path.join(settings.MEDIA_ROOT, 'thumbs')
-        # thumbnail_path = os.path.join(thumbnail_dir,
-        #                               'layer-%s-thumb.png' % layer.uuid)
-        # # Check if thumbnail is created
-        # self.assertTrue(os.path.exists(thumbnail_path))
-        # self.assertEqual(what(thumbnail_path), 'png')
+        thumbnail_dir = os.path.join(settings.MEDIA_ROOT, 'thumbs')
+        thumbnail_path = os.path.join(thumbnail_dir,
+                                      'layer-%s-thumb.png' % layer.uuid)
+        # Check if thumbnail is created
+        self.assertTrue(os.path.exists(thumbnail_path))
+        self.assertEqual(what(thumbnail_path), 'png')
 
         layer.delete()
 
