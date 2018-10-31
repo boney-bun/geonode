@@ -701,7 +701,7 @@ community."
             '-90.1932079140', '-79.2067920625',
             '9.0592199045', '16.5407800920', 'EPSG:4326']
 
-        self.assertEqual(
+        self.assertAlmostEqual(
             bbox_str,
             [str(c) for c in map_obj.bbox])
         bbox_long_str = '-90.1932079140,9.0592199045,' \
