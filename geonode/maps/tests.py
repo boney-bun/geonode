@@ -168,6 +168,51 @@ community."
         self.assertEquals(map_obj.abstract, "Abstract2")
         self.assertEquals(map_obj.layer_set.all().count(), 1)
 
+    @on_ogc_backend(qgis_server.BACKEND_PACKAGE)
+    def test_map_json_on_qgis_server(self):
+        json_payload = InitialSetup.generate_initial_map()
+        # First, create a map with two layers (and 2 background layers)
+        # Need to log in for saving a map
+        self.client.login(username='admin', password='admin')
+
+        result_new_map = self.client.post(
+            reverse('new_map_json'),
+            json.dumps(json_payload),
+            content_type='application/json')
+        # the new map is successfully saved
+        self.assertEqual(result_new_map.status_code, 200)
+
+        map_id = json.loads(result_new_map.content).get('id')
+        old_map_obj = Map.objects.get(id=map_id)
+
+        # try to update by removing one layer
+        layers = json_payload['map']['layers']
+        before_remove = len(layers)
+        after_remove = before_remove - 1
+        layer = layers[0]
+        layers.remove(layer)
+
+        # update the map
+        result_update_map = self.client.post(
+            reverse('map_json', kwargs={'mapid': map_id}),
+            data=json.dumps(json_payload),
+            content_type='application/json')
+        # successfully updated
+        self.assertEqual(result_update_map.status_code, 200)
+        new_map_obj = Map.objects.get(id=map_id)
+        # check if the layer is eliminated from the map
+        # the number of layers on the map decrease by 1
+        self.assertEqual(
+            len(result_update_map.context_data['map'].layers),
+            after_remove)
+        # new thumbnail exist and has the same url with the old one
+        self.assertEqual(
+            old_map_obj.get_thumbnail_url(),
+            new_map_obj.get_thumbnail_url())
+
+        # clean up
+        Map.objects.get(id=map_id).delete()
+
     def test_map_save(self):
         """POST /maps/new/data -> Test saving a new map"""
 
@@ -276,26 +321,6 @@ community."
         map_obj.set_default_permissions()
         response = self.client.get(reverse('map_detail', args=(map_obj.id,)))
         self.assertEquals(response.status_code, 200)
-
-    def test_describe_map(self):
-        map_obj = Map.objects.get(id=1)
-        map_obj.set_default_permissions()
-        response = self.client.get(reverse('map_metadata_detail', args=(map_obj.id,)))
-        self.failUnlessEqual(response.status_code, 200)
-        self.assertContains(response, "Approved", count=1, status_code=200, msg_prefix='', html=False)
-        self.assertContains(response, "Published", count=1, status_code=200, msg_prefix='', html=False)
-        self.assertContains(response, "Featured", count=1, status_code=200, msg_prefix='', html=False)
-        self.assertContains(response, "<dt>Group</dt>", count=0, status_code=200, msg_prefix='', html=False)
-
-        # ... now assigning a Group to the map
-        group = Group.objects.first()
-        map_obj.group = group
-        map_obj.save()
-        response = self.client.get(reverse('map_metadata_detail', args=(map_obj.id,)))
-        self.failUnlessEqual(response.status_code, 200)
-        self.assertContains(response, "<dt>Group</dt>", count=1, status_code=200, msg_prefix='', html=False)
-        map_obj.group = None
-        map_obj.save()
 
     def test_new_map_without_layers(self):
         # TODO: Should this test have asserts in it?
@@ -445,7 +470,6 @@ community."
         # which removes map and associated layers, and redirects webpage
         response = self.client.post(url)
         self.assertEquals(response.status_code, 302)
-        # self.assertEquals(response['Location'], '/maps/')
         self.assertEquals(response['Location'], 'http://testserver/maps/')
 
         # After removal, map is not existent
@@ -458,7 +482,6 @@ community."
         # TODO: Also associated layers are not existent
         # self.assertEquals(map_obj.layer_set.all().count(), 0)
 
-    @on_ogc_backend(qgis_server.BACKEND_PACKAGE)
     def test_map_download_leaflet(self):
         """ Test that a map can be downloaded as leaflet"""
         # first, get a new map: user needs to login
@@ -475,11 +498,18 @@ community."
         # then, obtain the map using leaflet
         response = self.client.get(
             reverse(
-                'map_download_leaflet', args=(map_id, )))
+                'map_download_leaflet', args=(map_id,)))
 
-        # download map leafleT should return OK
-        self.assertEquals(response.status_code, 200)
-        self.assertEquals(response.get('Content-Type'), 'html')
+        if check_ogc_backend(geoserver.BACKEND_PACKAGE):
+            # download map leaflet hasn't supported in geoserver
+            self.assertEquals(response.status_code, 400)
+        elif check_ogc_backend(qgis_server.BACKEND_PACKAGE):
+            # download map leaflet should return OK
+            self.assertEquals(response.status_code, 200)
+            self.assertEquals(response.get('Content-Type'), 'html')
+        else:
+            # failed if the test reaches this point
+            self.assertFalse(True)
 
     def test_map_embed(self):
         """Test that map can be properly embedded
@@ -647,14 +677,14 @@ community."
         # Check
         # BBox format: [xmin, xmax, ymin, ymax
         bbox_str = [
-            '-90.193207913954200', '-79.206792062465500',
-            '9.059219904470890', '16.540780092025600', 'EPSG:4326']
+            '-90.1932079140', '-79.2067920625',
+            '9.0592199045', '16.5407800920', 'EPSG:4326']
 
         self.assertEqual(
             bbox_str,
             [str(c) for c in map_obj.bbox])
-        bbox_long_str = '-90.193207913954200,9.059219904470890,' \
-                        '-79.206792062465500,16.540780092025600'
+        bbox_long_str = '-90.1932079140,9.0592199045,' \
+                        '-79.2067920625,16.5407800920'
         self.assertEqual(bbox_long_str, map_obj.bbox_string)
 
         # Test methods other than GET or POST and no layer in params
@@ -760,8 +790,7 @@ community."
         self.assertEquals(response.status_code, 302)
         resources = Model.objects.filter(id__in=[r.pk for r in resources])
         for resource in resources:
-            if resource.regions.all():
-                self.assertTrue(region in resource.regions.all())
+            self.assertTrue(region in resource.regions.all())
         # test date change
         date = datetime.now()
         response = self.client.post(
@@ -793,6 +822,82 @@ community."
         for resource in resources:
             for word in resource.keywords.all():
                 self.assertTrue(word.name in keywords.split(','))
+
+
+class InitialSetup():
+
+    @classmethod
+    def generate_initial_map(cls):
+        # construct json request for new map
+        json_payload = {
+            "sources": {
+                "source_OpenMapSurfer Roads": {
+                    "url": "http://korona.geog.uni-heidelberg.de/tiles"
+                           "/roads/x={x}&y={y}&z={z}"
+                },
+                "source_OpenStreetMap": {
+                    "url": "http://{s}.tile.osm.org/{z}/{x}/{y}.png"
+                },
+                "source_san_andres_y_providencia_administrative": {
+                    "url": "http://geonode.dev/qgis-server/tiles"
+                           "/san_andres_y_providencia_administrative/"
+                           "{z}/{x}/{y}.png"
+                },
+                "source_relief_san_andres": {
+                    "url": "http://geonode.dev/qgis-server/tiles"
+                           "/relief_san_andres/{z}/{x}/{y}.png"
+                }
+            },
+            "about": {
+                "title": "San Andreas",
+                "abstract": "San Andreas sample map"
+            },
+            "map": {
+                "center": [12.91890657418042, -81.298828125],
+                "zoom": 6,
+                "projection": "",
+                "layers": [
+                    {
+                        "name": "OpenMapSurfer_Roads",
+                        "title": "OpenMapSurfer Roads",
+                        "visibility": True,
+                        "url": "http://korona.geog.uni-heidelberg.de/tiles/"
+                               "roads/x={x}&y={y}&z={z}",
+                        "group": "background",
+                        "source": "source_OpenMapSurfer Roads"
+                    },
+                    {
+                        "name": "osm",
+                        "title": "OpenStreetMap",
+                        "visibility": False,
+                        "url": "http://{s}.tile.osm.org/{z}/{x}/{y}.png",
+                        "group": "background",
+                        "source": "source_OpenStreetMap"
+                    },
+                    {
+                        "name": "geonode:"
+                                "san_andres_y_providencia_administrative",
+                        "title": "san_andres_y_providencia_administrative",
+                        "visibility": True,
+                        "url": "http://geonode.dev/qgis-server/tiles"
+                               "/san_andres_y_providencia_administrative/"
+                               "{z}/{x}/{y}.png",
+                        "source": "source_"
+                                  "san_andres_y_providencia_administrative"
+                    },
+                    {
+                        "name": "geonode:relief_san_andres",
+                        "title": "relief_san_andres",
+                        "visibility": True,
+                        "url": "http://geonode.dev/qgis-server/tiles"
+                               "/relief_san_andres/{z}/{x}/{y}.png",
+                        "source": "source_relief_san_andres"
+                    }
+                ]
+            }
+        }
+
+        return json_payload
 
 
 class MapModerationTestCase(TestCase):
