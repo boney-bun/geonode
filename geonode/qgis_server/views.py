@@ -173,6 +173,10 @@ def download_map(request, mapid):
         if map_layer.local:
             layer = get_object_or_404(Layer, alternate=map_layer.name)
             qgis_layer = get_object_or_404(QGISServerLayer, layer=layer)
+
+            # try getting qml from qgis-server
+            qgis_layer.extract_default_style_to_qml()
+
             # Files (local path) to put in the .zip
             filenames = qgis_layer.files
             # Exclude qgis project files, because it contains server specific path
@@ -187,6 +191,9 @@ def download_map(request, mapid):
 
                 # Add file, at correct path
                 zf.write(fpath, zip_path)
+
+            # no longer needed, remove the qml
+            qgis_layer.remove_qml_file_style()
 
     # Must close zip for all contents to be written
     zf.close()
