@@ -178,9 +178,9 @@ def download_map(request, mapid):
             filenames = qgis_layer.files
 
             # try getting qml from qgis-server
-            with qgis_layer.use_default_style_as_qml() as f:
+            with qgis_layer.use_default_style_as_qml() as f_qml:
                 # add to list of filenames
-                filenames.append(f)
+                filenames.append(f_qml)
 
                 # Exclude qgis project files, because it contains server specific path
                 # kartoza/geonode#299: we would like to include all project files, except qgs
