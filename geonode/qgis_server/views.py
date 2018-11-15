@@ -174,26 +174,26 @@ def download_map(request, mapid):
             layer = get_object_or_404(Layer, alternate=map_layer.name)
             qgis_layer = get_object_or_404(QGISServerLayer, layer=layer)
 
-            # try getting qml from qgis-server
-            qgis_layer.extract_default_style_to_qml()
-
             # Files (local path) to put in the .zip
             filenames = qgis_layer.files
-            # Exclude qgis project files, because it contains server specific path
-            # kartoza/geonode#299: we would like to include all project files, except qgs
-            filenames = [f for f in filenames if not f.endswith('.qgs')]
 
-            for fpath in filenames:
-                # Calculate path for file in zip
-                fdir, fname = os.path.split(fpath)
+            # try getting qml from qgis-server
+            with qgis_layer.use_default_style_as_qml() as f:
+                # add to list of filenames
+                filenames.append(f)
 
-                zip_path = os.path.join(zip_subdir, fname)
+                # Exclude qgis project files, because it contains server specific path
+                # kartoza/geonode#299: we would like to include all project files, except qgs
+                filenames = [f for f in filenames if not f.endswith('.qgs')]
 
-                # Add file, at correct path
-                zf.write(fpath, zip_path)
+                for fpath in filenames:
+                    # Calculate path for file in zip
+                    fdir, fname = os.path.split(fpath)
 
-            # no longer needed, remove the qml
-            qgis_layer.remove_qml_file_style()
+                    zip_path = os.path.join(zip_subdir, fname)
+
+                    # Add file, at correct path
+                    zf.write(fpath, zip_path)
 
     # Must close zip for all contents to be written
     zf.close()
