@@ -703,10 +703,10 @@ community."
 
         self.assertAlmostEqual(
             bbox_str,
-            [str(c) for c in map_obj.bbox])
+            [c for c in map_obj.bbox])
         bbox_long_str = '-90.1932079140,9.0592199045,' \
                         '-79.2067920625,16.5407800920'
-        self.assertEqual(bbox_long_str, map_obj.bbox_string)
+        self.assertAlmostEqual(bbox_long_str, map_obj.bbox_string)
 
         # Test methods other than GET or POST and no layer in params
         response = self.client.put(url)
