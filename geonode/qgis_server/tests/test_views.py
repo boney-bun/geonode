@@ -20,6 +20,7 @@
 
 import StringIO
 import json
+import math
 import os
 import shutil
 import tempfile
@@ -41,7 +42,8 @@ from geonode import qgis_server
 from geonode.decorators import on_ogc_backend
 from geonode.layers.utils import file_upload
 from geonode.maps.models import Map
-from geonode.qgis_server.helpers import wms_get_capabilities_url, style_list
+from geonode.qgis_server.helpers import wms_get_capabilities_url, style_list, \
+    transform_bbox
 
 
 class DefaultViewsTest(TestCase):
@@ -371,9 +373,92 @@ class QGISServerViewsTest(LiveServerTestCase):
                          125.599999999999994,
                          10.100000000000000]
         uploaded_bbox = [float(f) for f in uploaded.bbox_string.split(',')]
-        # self.assertAlmostEqual(uploaded.bbox_string, expected_bbox, 5)
+
         for key in range(len(uploaded_bbox)):
             self.assertAlmostEqual(uploaded_bbox[key], expected_bbox[key], 5)
+
+        self.assertEqual('EPSG:4326', uploaded.srid)
+
+        # Check WFS request resolved correctly
+        url = reverse('qgis_server:layer-request', kwargs={
+            'layername': uploaded.name
+        })
+        params = {
+            'SERVICE': 'WFS',
+            'REQUEST': 'GetFeature',
+            'VERSION': '1.0.0',
+            'TYPENAME': uploaded.name,
+            'OUTPUTFORMAT': 'GeoJSON'
+        }
+        response = self.client.get(url, data=params)
+
+        self.assertEqual(response.status_code, 200)
+
+        json_output = json.loads(response.content)
+
+        types = json_output['type']
+
+        self.assertEqual(types, 'FeatureCollection')
+
+        feature_count = len(json_output['features'])
+
+        self.assertEqual(1, feature_count)
+
+        uploaded.delete()
+
+    @on_ogc_backend(qgis_server.BACKEND_PACKAGE)
+    def test_upload_qlr(self):
+        """Test we can upload QLR layer and check bbox"""
+        file_path = os.path.realpath(__file__)
+        test_dir = os.path.dirname(file_path)
+        # this QLR uses remote data source to
+        # http://testing.geonode.kartoza.com
+        qlr_file_path = os.path.join(test_dir, 'data', 'buildings.qlr')
+        uploaded = file_upload(qlr_file_path)
+        # check if file is uploaded
+        self.assertTrue(uploaded)
+        # check bbox exists
+
+        expected_bbox = [
+            106.64,
+            -6.30,
+            106.91,
+            -6.11
+        ]
+
+        uploaded_bbox = [float(f) for f in uploaded.bbox_string.split(',')]
+
+        for key in range(len(uploaded_bbox)):
+            self.assertAlmostEqual(uploaded_bbox[key], expected_bbox[key], 2)
+
+        self.assertEqual('EPSG:4326', uploaded.srid)
+
+        # Check WFS request resolved correctly
+        url = reverse('qgis_server:layer-request', kwargs={
+            'layername': uploaded.name
+        })
+        params = {
+            'SERVICE': 'WFS',
+            'REQUEST': 'GetFeature',
+            'VERSION': '1.0.0',
+            'TYPENAME': uploaded.name,
+            'OUTPUTFORMAT': 'GeoJSON'
+        }
+        response = self.client.get(url, data=params)
+
+        self.assertEqual(response.status_code, 200)
+
+        json_output = json.loads(response.content)
+
+        types = json_output['type']
+
+        self.assertEqual(types, 'FeatureCollection')
+
+        feature_count = len(json_output['features'])
+
+        self.assertEqual(12, feature_count)
+
+        uploaded.delete()
 
     @on_ogc_backend(qgis_server.BACKEND_PACKAGE)
     def test_download_map_qlr(self):
@@ -765,6 +850,29 @@ class ThumbnailGenerationTest(LiveServerTestCase):
         # of not equal, but that's ok
         self.assertNotEqual(width, height)
 
+        # check aspect ratios
+        aspect_ratios = float(width) / float(height)
+        bbox_string = query_string['BBOX'][0]
+
+        bbox = [float(c) for c in bbox_string.split(',')]
+        srid = query_string['SRS'][0]
+        if srid == 'EPSG:4326':
+            # some weird bbox format EPSG:4326 in QGIS
+            y0, x0, y1, x1 = bbox
+        else:
+            x0, y0, x1, y1 = bbox
+
+        requested_bbox = transform_bbox(
+            [x0, y0, x1, y1], int(srid.split(':')[1]), 3857)
+
+        x0, y0, x1, y1 = requested_bbox
+
+        horizontal = math.fabs(x1 - x0)
+        vertical = math.fabs(y1 - y0)
+        extent_ratios = horizontal / vertical
+
+        self.assertAlmostEqual(extent_ratios, aspect_ratios, 2)
+
         remote_thumbnail_url = urlparse.urlunsplit(
             ('', '', parse_result.path, parse_result.query, ''))
 
@@ -848,19 +956,21 @@ class ThumbnailGenerationTest(LiveServerTestCase):
         # Replace url's basename, we want to access it using django client
         parse_result = urlparse.urlsplit(remote_thumbnail_url)
 
-        # check that thumbnail will request in EPSG:4326
+        # check that thumbnail will request in EPSG:3857
+        # this is used to maintain aspect ratios for flat image
         query_string = urlparse.parse_qs(parse_result.query)
-        self.assertEqual(query_string['SRS'], ['EPSG:4326'])
+        self.assertEqual(query_string['SRS'], ['EPSG:3857'])
 
         requested_bbox = query_string['BBOX'][0].split(',')
         requested_bbox = [float(c) for c in requested_bbox]
 
         # At least check that the bbox is converted
+        # Format [x0, y0, x1, y1]
         expected_bbox = [
-            32.4514953875,
-            -117.489172313,
-            33.4442838815,
-            -116.002305884
+            -13083876.52,
+            3822667.39,
+            -12908275.93,
+            3954367.84
         ]
         # there might be some discrepancies in the accuracy, so just check
         # until 5 decimal places
@@ -868,7 +978,7 @@ class ThumbnailGenerationTest(LiveServerTestCase):
             self.assertAlmostEqual(
                 expected_bbox[index],
                 requested_bbox[index],
-                places=5)
+                places=2)
 
         layer.delete()
 

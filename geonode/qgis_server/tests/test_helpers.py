@@ -40,7 +40,8 @@ from geonode.layers.utils import file_upload
 from geonode.qgis_server.helpers import validate_django_settings, \
     transform_layer_bbox, qgis_server_endpoint, tile_url_format, tile_url, \
     style_get_url, style_add_url, style_list, style_set_default_url, \
-    style_remove_url
+    style_remove_url, tile_coordinate_generator
+from geonode.qgis_server.tasks.update import tile_cache_seeder
 
 
 class HelperTest(LiveServerTestCase):
@@ -212,6 +213,35 @@ class HelperTest(LiveServerTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.content, 'OK')
 
+        # Test style extraction
+        # There should be no qml file, by default. It should be ignored.
+        qgis_layer.refresh_from_db()
+        self.assertFalse(os.path.exists(qgis_layer.qml_path))
+
+        # If the need rises, we can extract default style to qml path
+        qgis_layer.extract_default_style_to_qml()
+        self.assertTrue(os.path.exists(qgis_layer.qml_path))
+
+        # It can be deleted, once we finished dealing with it
+        qgis_layer.remove_qml_file_style()
+        self.assertFalse(os.path.exists(qgis_layer.qml_path))
+        # Deleting again should raise no error
+        qgis_layer.remove_qml_file_style()
+
+        # Alternatively if we are using default style in one thread,
+        # use context manager
+        with qgis_layer.use_default_style_as_qml(open_as_file=True) as f:
+            # Should contain the qml definition
+            qml_content = f.read()
+            self.assertTrue(qml_content, qgis_layer.default_style.body)
+
+        self.assertFalse(os.path.exists(qgis_layer.qml_path))
+
+        with qgis_layer.use_default_style_as_qml():
+            self.assertTrue(os.path.exists(qgis_layer.qml_path))
+
+        self.assertFalse(os.path.exists(qgis_layer.qml_path))
+
         # Cleanup
         uploaded.delete()
 
@@ -291,4 +321,45 @@ class HelperTest(LiveServerTestCase):
             actual_geonode_layer_list - geonode_layer_list)
 
         # cleanup
+        uploaded.delete()
+
+    @on_ogc_backend(qgis_server.BACKEND_PACKAGE)
+    def test_tile_seeds(self):
+        """Test doing tile seeds."""
+        filename = os.path.join(gisdata.GOOD_DATA, 'raster/test_grid.tif')
+        uploaded = file_upload(filename)
+
+        # cache path should be empty
+        self.assertFalse(os.path.exists(uploaded.qgis_layer.cache_path))
+
+        # generate using tile seeder
+        tiles_list, tile_count = tile_coordinate_generator(uploaded, 10, 12)
+
+        self.assertEqual(12, tile_count)
+
+        tile_count = tile_cache_seeder(uploaded, tiles_list, style='default')
+
+        self.assertEqual(12, tile_count)
+
+        self.assertTrue(os.path.exists(uploaded.qgis_layer.cache_path))
+
+        # Check particular location is correctly generated
+        self.assertTrue(os.path.exists(
+            os.path.join(
+                uploaded.qgis_layer.cache_path, 'default/10/787/527.png')
+        ))
+
+        # clean up
+        shutil.rmtree(uploaded.qgis_layer.cache_path)
+
+        # generate tiles using management command
+        self.assertFalse(os.path.exists(uploaded.qgis_layer.cache_path))
+
+        call_command(
+            'tile_seeder',
+            uploaded.name,
+            noinput=True, zoom_level=[10, 12])
+
+        self.assertTrue(os.path.exists(uploaded.qgis_layer.cache_path))
+
         uploaded.delete()

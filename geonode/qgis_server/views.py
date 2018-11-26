@@ -53,7 +53,8 @@ from geonode.qgis_server.helpers import (
     qgs_url,
     qlr_url,
     qgis_server_endpoint, style_get_url, style_list, style_add_url,
-    style_remove_url, style_set_default_url, change_basemap_url)
+    style_remove_url, style_set_default_url, change_basemap_url,
+    tile_cache_path, legend_cache_path)
 from geonode.qgis_server.models import QGISServerLayer
 from geonode.qgis_server.tasks.update import (
     create_qgis_server_thumbnail,
@@ -172,20 +173,27 @@ def download_map(request, mapid):
         if map_layer.local:
             layer = get_object_or_404(Layer, alternate=map_layer.name)
             qgis_layer = get_object_or_404(QGISServerLayer, layer=layer)
+
             # Files (local path) to put in the .zip
             filenames = qgis_layer.files
-            # Exclude qgis project files, because it contains server specific path
-            # kartoza/geonode#299: we would like to include all project files, except qgs
-            filenames = [f for f in filenames if not f.endswith('.qgs')]
 
-            for fpath in filenames:
-                # Calculate path for file in zip
-                fdir, fname = os.path.split(fpath)
+            # try getting qml from qgis-server
+            with qgis_layer.use_default_style_as_qml() as f_qml:
+                # add to list of filenames
+                filenames.append(f_qml)
 
-                zip_path = os.path.join(zip_subdir, fname)
+                # Exclude qgis project files, because it contains server specific path
+                # kartoza/geonode#299: we would like to include all project files, except qgs
+                filenames = [f for f in filenames if not f.endswith('.qgs')]
 
-                # Add file, at correct path
-                zf.write(fpath, zip_path)
+                for fpath in filenames:
+                    # Calculate path for file in zip
+                    fdir, fname = os.path.split(fpath)
+
+                    zip_path = os.path.join(zip_subdir, fname)
+
+                    # Add file, at correct path
+                    zf.write(fpath, zip_path)
 
     # Must close zip for all contents to be written
     zf.close()
@@ -234,8 +242,8 @@ def legend(request, layername, layertitle=False, style=None):
         if qgis_layer.default_style:
             style = qgis_layer.default_style.name
 
-    legend_path = QGIS_SERVER_CONFIG['legend_path']
-    legend_filename = legend_path % (qgis_layer.qgis_layer_name, style)
+    legend_filename = legend_cache_path(
+        qgis_layer.qgis_layer_name, style=style)
 
     if not os.path.exists(legend_filename):
 
@@ -333,8 +341,8 @@ def tile(request, layername, z, x, y, style=None):
         if qgis_layer.default_style:
             style = qgis_layer.default_style.name
 
-    tile_path = QGIS_SERVER_CONFIG['tile_path']
-    tile_filename = tile_path % (qgis_layer.qgis_layer_name, style, z, x, y)
+    tile_filename = tile_cache_path(
+        qgis_layer.qgis_layer_name, z, x, y, style=style)
 
     if not os.path.exists(tile_filename):
 
