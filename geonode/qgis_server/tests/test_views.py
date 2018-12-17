@@ -135,8 +135,8 @@ class QGISServerViewsTest(LiveServerTestCase):
         response = self.client.get(
             reverse('qgis_server:geotiff', kwargs=params))
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.get('Content-Type'), 'image/tiff')
-        self.assertEqual(what('', h=response.content), 'tiff')
+        self.assertEqual(response.get('Content-Type'), 'application/x-zip-compressed')
+        self.assertTrue("zip" in response['Content-Disposition'].split("filename")[1])
 
         # Layer is already on the database
         # checking the Link
