@@ -77,6 +77,11 @@ def download_zip(request, layername):
     qgis_layer = get_object_or_404(QGISServerLayer, layer=layer)
     # Files (local path) to put in the .zip
     filenames = qgis_layer.files
+
+    # generate qml then add to zip
+    qgis_layer.extract_default_style_to_qml()
+    filenames.append(qgis_layer.qml_path)
+
     # Exclude qgis project files, because it contains server specific path
     filenames = [f for f in filenames if not f.endswith('.qgs')]
 
@@ -428,13 +433,47 @@ def geotiff(request, layername):
     else:
         filename = None
 
-    if not filename:
+    zip_subdir = layer.name
+    # removes dash, dot, brackets, and space from the name
+    zip_subdir = re.sub('[()-. ]', '', zip_subdir)
+    zip_filename = "%s.zip" % zip_subdir
+
+    # Open StringIO to grab in-memory ZIP contents
+    s = StringIO.StringIO()
+
+    # The zip compressor
+    zf = zipfile.ZipFile(s, "w")
+
+    filenames = [filename]
+    # generate qml first
+    qgis_layer.extract_default_style_to_qml()
+    # then add qml to zip
+    filenames.append(qgis_layer.qml_path)
+    # also add xml to zip
+    filenames.append(qgis_layer.xml_path)
+
+    for fpath in filenames:
+        # Calculate path for file in zip
+        fdir, fname = os.path.split(fpath)
+
+        zip_path = os.path.join(zip_subdir, fname)
+
+        # Add file, at correct path
+        zf.write(fpath, zip_path)
+    zf.close()
+
+    if not filenames:
         msg = 'No Geotiff layer found for %s' % layername
         logger.debug(msg)
         raise Http404(msg)
 
-    with open(filename, 'rb') as f:
-        return HttpResponse(f.read(), content_type='image/tiff')
+    # Grab ZIP file from in-memory, make response with correct MIME-type
+    resp = HttpResponse(
+        s.getvalue(), content_type="application/x-zip-compressed")
+    # ..and correct content-disposition
+    resp['Content-Disposition'] = 'attachment; filename=%s' % zip_filename
+
+    return resp
 
 
 def qgis_server_request(request):
