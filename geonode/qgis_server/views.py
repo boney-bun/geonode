@@ -438,7 +438,6 @@ def geotiff(request, layername):
         logger.debug(msg)
         raise Http404(msg)
 
-
     zip_subdir = layer.name
     # removes dash, dot, brackets, and space from the name
     zip_subdir = re.sub('[()-. ]', '', zip_subdir)
@@ -449,7 +448,6 @@ def geotiff(request, layername):
 
     # The zip compressor
     zf = zipfile.ZipFile(s, "w")
-
 
     filenames = [filename]
 
