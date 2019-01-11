@@ -184,7 +184,7 @@ class QGISServerViewsTest(LiveServerTestCase):
         response = self.client.get(
             reverse('qgis_server:download-qml', kwargs=params))
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.get('Content-Type'), 'text/xml')
+        self.assertEqual(response.get('Content-Type'), 'application/json')
         # Should return a default style list
         actual_result = json.loads(response.content)
         actual_result = [s['name'] for s in actual_result]

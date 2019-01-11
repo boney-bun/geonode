@@ -433,6 +433,12 @@ def geotiff(request, layername):
     else:
         filename = None
 
+    if not filename:
+        msg = 'No Geotiff layer found for %s' % layername
+        logger.debug(msg)
+        raise Http404(msg)
+
+
     zip_subdir = layer.name
     # removes dash, dot, brackets, and space from the name
     zip_subdir = re.sub('[()-. ]', '', zip_subdir)
@@ -444,13 +450,16 @@ def geotiff(request, layername):
     # The zip compressor
     zf = zipfile.ZipFile(s, "w")
 
+
     filenames = [filename]
+
     # generate qml first
     qgis_layer.extract_default_style_to_qml()
     # then add qml to zip
     filenames.append(qgis_layer.qml_path)
     # also add xml to zip
-    filenames.append(qgis_layer.xml_path)
+    if os.path.exists(qgis_layer.xml_path):
+        filenames.append(qgis_layer.xml_path)
 
     for fpath in filenames:
         # Calculate path for file in zip
@@ -461,11 +470,6 @@ def geotiff(request, layername):
         # Add file, at correct path
         zf.write(fpath, zip_path)
     zf.close()
-
-    if not filenames:
-        msg = 'No Geotiff layer found for %s' % layername
-        logger.debug(msg)
-        raise Http404(msg)
 
     # Grab ZIP file from in-memory, make response with correct MIME-type
     resp = HttpResponse(
